@@ -7,9 +7,17 @@
     "cf-typegen": "wrangler types --env-interface CloudflareBindings"
   },
   "dependencies": {
-    "hono": "^4.10.6"
+    "@hono/node-server": "^1.19.6",
+    "dotenv": "^17.2.3",
+    "hono": "^4.10.6",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@antfu/eslint-config": "^6.2.0",
+    "@types/node": "^24.10.1",
+    "eslint": "^9.38.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
     "wrangler": "^4.4.0"
   }
 }
