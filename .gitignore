@@ -1,24 +1,29 @@
+# misc
+.DS_Store
+*.pem
+
+# vscode
+.vscode
+
 # prod
 dist/
-
-# dev
-.yarn/
-!.yarn/releases
-.vscode/*
-!.vscode/launch.json
-!.vscode/*.code-snippets
-.idea/workspace.xml
-.idea/usage.statistics.xml
-.idea/shelf
 
 # deps
 node_modules/
 .wrangler
 
-# env
-.env
-.env.production
-.dev.vars
+# Ignore all .env files except `.env.example`
+.env*
+!.env.example
+
+# production
+/build
+
+# Drizzle ORM auto‑generated files
+drizzle/migrations/schema.ts
+drizzle/migrations/relations.ts
+drizzle/migrations/meta/
+drizzle/.cache/
 
 # logs
 logs/
@@ -28,6 +33,3 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-
-# misc
-.DS_Store
