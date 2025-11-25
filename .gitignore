@@ -7,23 +7,14 @@
 
 # prod
 dist/
+build/
 
 # deps
 node_modules/
-.wrangler
 
 # Ignore all .env files except `.env.example`
 .env*
 !.env.example
-
-# production
-/build
-
-# Drizzle ORM auto‑generated files
-drizzle/migrations/schema.ts
-drizzle/migrations/relations.ts
-drizzle/migrations/meta/
-drizzle/.cache/
 
 # logs
 logs/

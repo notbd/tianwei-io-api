@@ -1,3 +1,5 @@
+import process from 'node:process'
+import dotenv from 'dotenv'
 import { z } from 'zod'
 
 const EnvSchema = z.object({
@@ -7,20 +9,12 @@ const EnvSchema = z.object({
 
 export type Env = z.infer<typeof EnvSchema>
 
+dotenv.config({ path: '.env.local', quiet: true })
+
 export async function getEnv(): Promise<Env> {
-  const isNode = typeof (globalThis as any).process?.versions?.node === 'string'
-
-  // only load `.env.local` if under Node.js runtime
-  if (isNode) {
-    const dotenv = await import('dotenv')
-    dotenv.config({ path: '.env.local', quiet: true })
-  }
-
-  const source = isNode ? process.env : (globalThis as Record<string, unknown>)
-
   const parsed = EnvSchema.safeParse({
-    DEPLOYMENT_ENV: source.DEPLOYMENT_ENV,
-    DATABASE_URL: source.DATABASE_URL,
+    DEPLOYMENT_ENV: process.env.DEPLOYMENT_ENV,
+    DATABASE_URL: process.env.DATABASE_URL,
   })
 
   if (!parsed.success) {

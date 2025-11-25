@@ -1,21 +1,22 @@
-```txt
-npm install
-npm run dev
+# tianwei-io-api
+
+```bash
+pnpm install
+pnpm run dev
 ```
 
-```txt
-npm run deploy
+```zsh
+open http://localhost:3000
 ```
 
-[For generating/synchronizing types based on your Worker configuration run](https://developers.cloudflare.com/workers/wrangler/commands/#types):
+## Quick test: env loader + DB connector
 
-```txt
-npm run cf-typegen
-```
+To quickly verify your environment loader and database connector work, place a valid `.env.local` file in the repo root with `DEPLOYMENT_ENV` and `DATABASE_URL`, then run:
 
-Pass the `CloudflareBindings` as generics when instantiation `Hono`:
+```bash
+# with pnpm (recommended)
+pnpm run test:env-db
 
-```ts
-// src/index.ts
-const app = new Hono<{ Bindings: CloudflareBindings }>()
+# or with npm
+npm run test:env-db
 ```

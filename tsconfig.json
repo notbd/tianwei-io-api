@@ -11,7 +11,13 @@
     "paths": {
       "@/*": ["./src/*"]
     },
+    "types": [
+      "node"
+    ],
     "strict": true,
+    "outDir": "./dist",
+    "verbatimModuleSyntax": true,
     "skipLibCheck": true
-  }
+  },
+  "exclude": ["node_modules"]
 }
