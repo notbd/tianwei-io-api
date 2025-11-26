@@ -12,22 +12,33 @@ export async function getDB() {
   if (cached.db)
     return cached.db
 
-  const env = await getEnv()
+  try {
+    const env = await getEnv()
+    const pool = new Pool({
+      connectionString: env.DATABASE_URL,
+    })
 
-  const pool = new Pool({
-    connectionString: env.DATABASE_URL,
-  })
-  const db = drizzle(pool, { schema })
-  cached = { db, pool }
-  return db
+    const db = drizzle(pool, { schema })
+    cached = { db, pool }
+    return db
+  }
+  catch (err) {
+    console.error('Failed to initialize database connection:', err)
+    throw new Error('Database connection error')
+  }
 }
 
 export async function closeDB() {
-  if (cached.pool) {
-    await cached.pool.end()
-    cached.pool = undefined
+  try {
+    if (cached.pool) {
+      await cached.pool.end()
+      cached.pool = undefined
+    }
+    cached.db = null
   }
-  cached.db = null
+  catch (err) {
+    console.warn('Error closing database pool:', err)
+  }
 }
 
 export async function getPool(): Promise<Pool | undefined> {
