@@ -1,15 +1,16 @@
 import process from 'node:process'
-import { closeDB, getDB, getPool } from '@/db/connector'
+import { closeDB, getPool } from '@/db/connector'
 import { getEnv } from '@/env'
 
 async function main() {
   // Test env loader
   console.info('\n- Running env + db connector test')
   try {
-    const env = await getEnv()
+    const env = getEnv()
     console.info('[✔︎] env loader: ok')
     console.info('  DEPLOYMENT_ENV:', env.DEPLOYMENT_ENV)
     console.info('  DATABASE_URL:', env.DATABASE_URL)
+    console.info('  HONO_PORT:', env.HONO_PORT)
   }
   catch (err: any) {
     console.error('[x] env loader failed:')

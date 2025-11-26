@@ -5,13 +5,14 @@ import { z } from 'zod'
 const EnvSchema = z.object({
   DEPLOYMENT_ENV: z.enum(['dev', 'prod']),
   DATABASE_URL: z.url().min(1, 'DATABASE_URL is required'),
+  HONO_PORT: z.coerce.number().int().positive().default(3000),
 })
 
 export type Env = z.infer<typeof EnvSchema>
 
 dotenv.config({ path: '.env.local', quiet: true })
 
-export async function getEnv(): Promise<Env> {
+export function getEnv(): Env {
   const parsed = EnvSchema.safeParse({
     DEPLOYMENT_ENV: process.env.DEPLOYMENT_ENV,
     DATABASE_URL: process.env.DATABASE_URL,
