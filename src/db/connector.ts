@@ -1,10 +1,11 @@
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 import { getEnv } from '@/env'
 import * as schema from './schema'
 
 let cached: {
-  db: any | null
+  db: NodePgDatabase<typeof schema> | null
   pool?: Pool
 } = { db: null }
 
@@ -13,7 +14,7 @@ export async function getDB() {
     return cached.db
 
   try {
-    const env = await getEnv()
+    const env = getEnv()
     const pool = new Pool({
       connectionString: env.DATABASE_URL,
     })

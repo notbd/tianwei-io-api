@@ -1,7 +1,5 @@
-import { eq } from 'drizzle-orm'
 import { Hono } from 'hono'
-import { getDB } from '@/db/connector'
-import { posts } from '@/db/schema'
+import { fetchPostBySlug } from '@/lib/posts'
 
 /**
  * /api/post/:slug - Returns one post (full detail including content).
@@ -12,41 +10,44 @@ postRoute.get('/post/:slug', async (c) => {
   const slug = c.req.param('slug')
 
   if (!slug) {
-    return c.json({
-      status: 'error',
-      message: 'Slug argument missing.',
-    }, 400)
+    return c.json(
+      {
+        status: 'error',
+        message: 'Slug parameter is required.',
+      },
+      400,
+    )
   }
 
   try {
-    const db = await getDB()
+    const post = await fetchPostBySlug(slug)
 
-    const result = await db
-      .select()
-      .from(posts)
-      .where(eq(posts.slug, slug))
-      .limit(1)
-
-    const post = result[0]
-
-    if (!post || !post.isPublished) {
-      return c.json({
-        status: 'error',
-        message: 'Post not found.',
-      }, 404)
+    if (!post) {
+      return c.json(
+        {
+          status: 'error',
+          message: 'Post not found.',
+        },
+        404,
+      )
     }
 
-    return c.json({
-      status: 'success',
-      data: post,
-    })
+    return c.json(
+      {
+        status: 'success',
+        data: post,
+      },
+    )
   }
   catch (err) {
     console.error('Error fetching post:', err)
-    return c.json({
-      status: 'error',
-      message: 'Failed to fetch post.',
-    }, 500)
+    return c.json(
+      {
+        status: 'error',
+        message: 'Failed to fetch post.',
+      },
+      500,
+    )
   }
 })
 

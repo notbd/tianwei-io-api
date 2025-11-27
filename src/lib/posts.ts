@@ -2,20 +2,22 @@ import { desc, eq } from 'drizzle-orm'
 import { getDB } from '@/db/connector'
 import { posts } from '@/db/schema'
 
-export interface fetchPostsConfig {
+export interface FetchPostsConfig {
   ignorePublishStatus?: boolean
 }
 
 /**
- * Retrieve posts from the database. By default, only published posts are returned.
+ * Retrieve posts from the database.
+ * By default, only published posts are returned.
  */
-export async function fetchPosts(config: fetchPostsConfig = {}) {
+export async function fetchPosts(config: FetchPostsConfig = {}) {
   const db = await getDB()
 
   try {
-    const whereClause = config?.ignorePublishStatus === true
-      ? undefined
-      : eq(posts.isPublished, true)
+    const whereClause
+      = config?.ignorePublishStatus === true
+        ? undefined
+        : eq(posts.isPublished, true)
 
     const query = db
       .select({
@@ -37,4 +39,39 @@ export async function fetchPosts(config: fetchPostsConfig = {}) {
     console.error('Database query failed:', err)
     throw new Error('Failed to query posts')
   }
+}
+
+export interface FetchPostBySlugConfig {
+  ignorePublishStatus?: boolean
+}
+
+/**
+ * Retrieve a single post by slug, including full content.
+ * By default, only returns the post if it is published.
+ * Returns `null` if not found or not published.
+ */
+export async function fetchPostBySlug(
+  slug: string,
+  config: FetchPostBySlugConfig = {},
+) {
+  const db = await getDB()
+
+  const result = await db
+    .select()
+    .from(posts)
+    .where(eq(posts.slug, slug))
+    .limit(1)
+
+  const post = result[0]
+
+  if (!post) {
+    return null
+  }
+
+  // If we're not ignoring publish status, filter out unpublished posts
+  if (!config.ignorePublishStatus && !post.isPublished) {
+    return null
+  }
+
+  return post
 }
