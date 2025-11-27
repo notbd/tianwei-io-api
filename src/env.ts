@@ -16,6 +16,7 @@ export function getEnv(): Env {
   const parsed = EnvSchema.safeParse({
     DEPLOYMENT_ENV: process.env.DEPLOYMENT_ENV,
     DATABASE_URL: process.env.DATABASE_URL,
+    HONO_PORT: process.env.HONO_PORT,
   })
 
   if (!parsed.success) {
