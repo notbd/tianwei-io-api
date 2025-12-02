@@ -20,10 +20,10 @@ export const posts = pgTable('posts', {
   description: text('description'),
   author: varchar('author', { length: 100 }).notNull(),
 
-  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow(),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull(),
 
   // whether this entry should be visible to the frontend
-  isPublished: boolean('is_published').default(false),
+  isPublished: boolean('is_published').notNull(),
 
-  content: text('content'),
+  content: text('content').notNull(),
 })

@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { fetchCategories } from '@/lib/categories'
+import { apiRes } from '@/lib/responses'
 
 /**
  * /api/categories - Retrieves list of unique post categories.
@@ -10,23 +11,11 @@ categoriesRoute.get('/categories', async (c) => {
   try {
     const categories = await fetchCategories()
 
-    return c.json(
-      {
-        status: 'success',
-        count: categories.length,
-        data: categories,
-      },
-    )
+    return apiRes.list(c, categories)
   }
   catch (err) {
     console.error('Error fetching categories:', err)
-    return c.json(
-      {
-        status: 'error',
-        message: 'Failed to fetch categories.',
-      },
-      500,
-    )
+    return apiRes.err(c, 'Failed to fetch categories.', 500)
   }
 })
 

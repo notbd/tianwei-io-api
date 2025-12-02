@@ -5,6 +5,7 @@ import { Hono } from 'hono'
 import { closeDB } from '@/db/connector'
 import { getEnv } from '@/env'
 import { createPostsEndpoint } from '@/factories/createPostsEndpoint'
+import { apiRes } from '@/lib/responses'
 import categoriesRoute from '@/routes/categoriesRoute'
 import postRoute from '@/routes/postRoute'
 import postsRoute from '@/routes/postsRoute'
@@ -27,15 +28,8 @@ function main() {
     app.route('/api/__dev', createPostsEndpoint({ ignorePublishStatus: true }))
   }
 
-  app.notFound(c =>
-    c.json(
-      {
-        status: 'error',
-        message: 'Not Found',
-      },
-      404,
-    ),
-  )
+  // 404 handler
+  app.notFound(c => apiRes.err(c, 'Not Found', 404))
 
   const server = serve(
     {

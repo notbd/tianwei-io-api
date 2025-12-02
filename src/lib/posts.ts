@@ -1,3 +1,4 @@
+import type { Post, PostSummary } from '@/schemas'
 import { desc, eq } from 'drizzle-orm'
 import { getDB } from '@/db/connector'
 import { posts } from '@/db/schema'
@@ -10,7 +11,9 @@ export interface FetchPostsConfig {
  * Retrieve posts from the database.
  * By default, only published posts are returned.
  */
-export async function fetchPosts(config: FetchPostsConfig = {}) {
+export async function fetchPosts(
+  config: FetchPostsConfig = {},
+): Promise<PostSummary[]> {
   const db = await getDB()
 
   try {
@@ -53,7 +56,7 @@ export interface FetchPostBySlugConfig {
 export async function fetchPostBySlug(
   slug: string,
   config: FetchPostBySlugConfig = {},
-) {
+): Promise<Post | null> {
   const db = await getDB()
 
   const result = await db
@@ -68,7 +71,6 @@ export async function fetchPostBySlug(
     return null
   }
 
-  // If we're not ignoring publish status, filter out unpublished posts
   if (!config.ignorePublishStatus && !post.isPublished) {
     return null
   }

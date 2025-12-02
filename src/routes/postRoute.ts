@@ -1,54 +1,35 @@
+import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { fetchPostBySlug } from '@/lib/posts'
+import { apiRes } from '@/lib/responses'
+import { validationErrorHook } from '@/lib/validation'
+import { slugParam } from '@/schemas'
 
 /**
  * /api/post/:slug - Returns one post (full detail including content).
  */
 const postRoute = new Hono()
 
-postRoute.get('/post/:slug', async (c) => {
-  const slug = c.req.param('slug')
+postRoute.get(
+  '/post/:slug',
+  zValidator('param', slugParam, validationErrorHook),
+  async (c) => {
+    const { slug } = c.req.valid('param')
 
-  if (!slug) {
-    return c.json(
-      {
-        status: 'error',
-        message: 'Slug parameter is required.',
-      },
-      400,
-    )
-  }
+    try {
+      const post = await fetchPostBySlug(slug)
 
-  try {
-    const post = await fetchPostBySlug(slug)
+      if (!post) {
+        return apiRes.err(c, 'Post not found.', 404)
+      }
 
-    if (!post) {
-      return c.json(
-        {
-          status: 'error',
-          message: 'Post not found.',
-        },
-        404,
-      )
+      return apiRes.ok(c, post)
     }
-
-    return c.json(
-      {
-        status: 'success',
-        data: post,
-      },
-    )
-  }
-  catch (err) {
-    console.error('Error fetching post:', err)
-    return c.json(
-      {
-        status: 'error',
-        message: 'Failed to fetch post.',
-      },
-      500,
-    )
-  }
-})
+    catch (err) {
+      console.error('Error fetching post:', err)
+      return apiRes.err(c, 'Failed to fetch post.', 500)
+    }
+  },
+)
 
 export default postRoute
