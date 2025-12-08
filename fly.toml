@@ -1,0 +1,37 @@
+app = "tianwei-io-api"
+primary_region = "yyz"
+
+[build]
+dockerfile = "Dockerfile"
+
+[env]
+NODE_ENV = "production"
+PORT = "3001"
+
+# Machine / Services configuration
+[[services]]
+protocol = "tcp"
+internal_port = 3001
+
+[services.concurrency]
+type = "connections"
+hard_limit = 25
+soft_limit = 20
+
+[[services.ports]]
+port = 80
+handlers = [ "http" ]
+
+[[services.ports]]
+port = 443
+handlers = [
+  "tls",
+  "http"
+]
+
+# Optional scaling rules (auto sleep/wake)
+[scale]
+min = 0
+max = 1
+auto_stop_machines = true
+auto_start_machines = true
