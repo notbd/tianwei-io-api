@@ -16,7 +16,7 @@
 
 import process from 'node:process'
 import { Pool } from 'pg'
-import { getEnv } from '@/env'
+import { getEnv } from '../src/env'
 
 function maskUrl(url: string): string {
   return url.replace(/\/\/([^:]+):([^@]+)@/, '//$1:****@')

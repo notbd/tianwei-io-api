@@ -5,9 +5,10 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { closeDB } from '@/db/connector'
-import { getEnv, isDev } from '@/env'
+import { getEnv, isDev, isProd } from '@/env'
 import { createPostsEndpoint } from '@/factories/createPostsEndpoint'
 import { apiRes } from '@/lib/responses'
+import { rateLimiter } from '@/middleware/rateLimiter'
 import categoriesRoute from '@/routes/categoriesRoute'
 import postRoute from '@/routes/postRoute'
 import postsRoute from '@/routes/postsRoute'
@@ -23,6 +24,11 @@ function main() {
   // Request logging (development only for cleaner prod logs)
   if (isDev()) {
     app.use('*', logger())
+  }
+
+  // Rate Limiting (100 per ip per hour, prod only)
+  if (isProd()) {
+    app.use('*', rateLimiter(60 * 60 * 1000, 100))
   }
 
   // CORS middleware - only applied if ALLOWED_ORIGINS is configured
