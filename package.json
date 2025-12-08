@@ -3,13 +3,11 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "tsup src/index.ts --format esm --dts",
     "start": "node dist/index.js",
-
     "test:env-db": "tsx tests/test-env-db.ts",
     "test:remote-db": "tsx tests/test-remote-db.ts",
     "test:endpoints": "tsx tests/test-endpoints.ts",
-
     "lint": "eslint",
     "lint:fix": "eslint --fix"
   },
@@ -27,6 +25,7 @@
     "@types/node": "^20.11.17",
     "@types/pg": "^8.15.6",
     "eslint": "^9.38.0",
+    "tsup": "^8.5.1",
     "tsx": "^4.7.1",
     "typescript": "^5.8.3"
   }
