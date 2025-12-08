@@ -1,44 +1,97 @@
+/**
+ * Environment and Database Connection Test
+ *
+ * Tests that:
+ * 1. Environment variables are loaded and validated correctly
+ * 2. Database connection can be established (using DATABASE_URL)
+ * 3. Basic query execution works
+ *
+ * Usage:
+ *   pnpm test:env-db
+ */
+
 import process from 'node:process'
 import { closeDB, getPool } from '@/db/connector'
 import { getEnv } from '@/env'
 
+function maskUrl(url: string): string {
+  return url.replace(/\/\/([^:]+):([^@]+)@/, '//$1:****@')
+}
+
 async function main() {
-  // Test env loader
-  console.info('\n- Running env + db connector test')
-  try {
-    const env = getEnv()
-    console.info('[✔︎] env loader: ok')
-    console.info('  DEPLOYMENT_ENV:', env.DEPLOYMENT_ENV)
-    console.info('  DATABASE_URL:', env.DATABASE_URL)
-    console.info('  HONO_PORT:', env.HONO_PORT)
-  }
-  catch (err: any) {
-    console.error('[x] env loader failed:')
-    console.error(err?.message ?? err)
-    process.exitCode = 2
-    return
-  }
+  console.info('='.repeat(60))
+  console.info('Environment and Database Connection Test')
+  console.info('='.repeat(60))
 
-  // Test db connector - try a minimal query
-  console.info('\n- Running a lightweight DB query: SELECT 1')
+  // Step 1: Test environment loading
+  console.info('\n[1/3] Testing environment loader...')
+  let env
   try {
-    const pool = await getPool()
+    env = getEnv()
+    console.info('  [OK] Environment variables loaded')
+    console.info(`       NODE_ENV: ${env.NODE_ENV}`)
+    console.info(`       PORT: ${env.PORT}`)
+    console.info(`       DATABASE_URL: ${maskUrl(env.DATABASE_URL)}`)
 
-    if (!pool) {
-      throw new Error('  DB/Pool failed to initialize')
+    if (env.DATABASE_URL_REMOTE) {
+      console.info(`       DATABASE_URL_REMOTE: ${maskUrl(env.DATABASE_URL_REMOTE)}`)
+    }
+    else {
+      console.info('       DATABASE_URL_REMOTE: (not configured)')
     }
 
-    const result = await pool.query('SELECT 1 as ok')
-    console.info('[✔︎] db connector: query executed, rows:', result.rows)
+    if (env.ALLOWED_ORIGINS && env.ALLOWED_ORIGINS.length > 0) {
+      console.info(`       ALLOWED_ORIGINS: ${env.ALLOWED_ORIGINS.join(', ')}`)
+    }
+    else {
+      console.info('       ALLOWED_ORIGINS: (not configured, CORS disabled)')
+    }
   }
-  catch (err: any) {
-    console.error('[x] db connector failed:')
-    console.error(err?.message ?? err)
-    process.exitCode = 3
+  catch (err) {
+    console.error('  [FAIL] Environment loading failed')
+    console.error(`         ${err instanceof Error ? err.message : err}`)
+    process.exit(1)
   }
-  finally {
+
+  // Step 2: Test database connection
+  console.info('\n[2/3] Testing database connection...')
+  let pool
+  try {
+    pool = await getPool()
+    if (!pool) {
+      throw new Error('Pool is null after initialization')
+    }
+    console.info('  [OK] Database pool initialized')
+  }
+  catch (err) {
+    console.error('  [FAIL] Database connection failed')
+    console.error(`         ${err instanceof Error ? err.message : err}`)
     await closeDB()
+    process.exit(2)
   }
+
+  // Step 3: Test query execution
+  console.info('\n[3/3] Testing query execution (SELECT 1)...')
+  try {
+    const result = await pool.query('SELECT 1 AS ok')
+    if (result.rows[0]?.ok !== 1) {
+      throw new Error('Unexpected query result')
+    }
+    console.info('  [OK] Query executed successfully')
+  }
+  catch (err) {
+    console.error('  [FAIL] Query execution failed')
+    console.error(`         ${err instanceof Error ? err.message : err}`)
+    await closeDB()
+    process.exit(3)
+  }
+
+  // Cleanup
+  await closeDB()
+
+  console.info(`\n${'='.repeat(60)}`)
+  console.info('All tests passed!')
+  console.info('='.repeat(60))
 }
 
 main()

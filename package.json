@@ -7,6 +7,7 @@
     "start": "node dist/index.js",
 
     "test:env-db": "tsx tests/test-env-db.ts",
+    "test:remote-db": "tsx tests/test-remote-db.ts",
     "test:endpoints": "tsx tests/test-endpoints.ts",
 
     "lint": "eslint",

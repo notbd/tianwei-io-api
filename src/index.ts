@@ -2,8 +2,10 @@ import type { Env } from '@/env'
 import process from 'node:process'
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
+import { cors } from 'hono/cors'
+import { logger } from 'hono/logger'
 import { closeDB } from '@/db/connector'
-import { getEnv } from '@/env'
+import { getEnv, isDev } from '@/env'
 import { createPostsEndpoint } from '@/factories/createPostsEndpoint'
 import { apiRes } from '@/lib/responses'
 import categoriesRoute from '@/routes/categoriesRoute'
@@ -14,34 +16,80 @@ function main() {
   const env: Env = getEnv()
   const app = new Hono()
 
+  // ---------------------------------------------------------------------------
+  // Middleware
+  // ---------------------------------------------------------------------------
+
+  // Request logging (development only for cleaner prod logs)
+  if (isDev()) {
+    app.use('*', logger())
+  }
+
+  // CORS middleware - only applied if ALLOWED_ORIGINS is configured
+  // Without this, browsers block client-side requests from different origins.
+  // Server-side requests (SSR) are not affected by CORS.
+  if (env.ALLOWED_ORIGINS && env.ALLOWED_ORIGINS.length > 0) {
+    app.use(
+      '*',
+      cors({
+        origin: env.ALLOWED_ORIGINS,
+        allowMethods: ['GET', 'HEAD', 'OPTIONS'],
+        allowHeaders: ['Content-Type'],
+        maxAge: 86400, // 24 hours - browsers cache preflight response
+      }),
+    )
+    console.info(`CORS enabled for: ${env.ALLOWED_ORIGINS.join(', ')}`)
+  }
+  else {
+    console.info('CORS disabled (ALLOWED_ORIGINS not configured)')
+  }
+
+  // ---------------------------------------------------------------------------
+  // Routes
+  // ---------------------------------------------------------------------------
+
+  // Health check / root endpoint
   app.get('/', (c) => {
     return c.text('Hello from tianwei.io API!')
   })
 
-  // Public namespace
+  // Health check endpoint for deployment platforms
+  app.get('/health', (c) => {
+    return c.json({ status: 'ok', env: env.NODE_ENV })
+  })
+
+  // Public API routes
   app.route('/api', postsRoute)
   app.route('/api', categoriesRoute)
   app.route('/api', postRoute)
 
-  // Dev namespace (mounted only if not in production)
-  if (env.DEPLOYMENT_ENV !== 'prod') {
+  // Development-only routes (includes unpublished posts)
+  if (isDev()) {
     app.route('/api/__dev', createPostsEndpoint({ ignorePublishStatus: true }))
   }
 
   // 404 handler
   app.notFound(c => apiRes.err(c, 'Not Found', 404))
 
+  // ---------------------------------------------------------------------------
+  // Server Startup
+  // ---------------------------------------------------------------------------
+
   const server = serve(
     {
       fetch: app.fetch,
-      port: env.HONO_PORT,
+      port: env.PORT,
     },
     (info) => {
-      console.info(`Server is running on http://localhost:${info.port}`)
+      console.info(`Server running on http://localhost:${info.port}`)
+      console.info(`Environment: ${env.NODE_ENV}`)
     },
   )
 
-  // Graceful shutdown handlers
+  // ---------------------------------------------------------------------------
+  // Graceful Shutdown
+  // ---------------------------------------------------------------------------
+
   const shutdown = async () => {
     console.info('Shutting down server...')
     server.close()
