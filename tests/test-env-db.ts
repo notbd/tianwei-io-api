@@ -11,8 +11,8 @@
  */
 
 import process from 'node:process'
-import { closeDB, getPool } from '@/db/connector'
-import { getEnv } from '@/env'
+import { closeDB, getPool } from '../src/db/connector'
+import { getEnv } from '../src/env'
 
 function maskUrl(url: string): string {
   return url.replace(/\/\/([^:]+):([^@]+)@/, '//$1:****@')

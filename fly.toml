@@ -2,7 +2,7 @@ app = "tianwei-io-api"
 primary_region = "yyz"
 
 [build]
-dockerfile = "Dockerfile"
+dockerfile = "dockerfile"
 
 [env]
 NODE_ENV = "production"

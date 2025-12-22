@@ -1,7 +1,7 @@
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
-import { getEnv, isProd } from '@/env'
+import { getEnv } from '@/env'
 import * as schema from './schema'
 
 // ---------------------------------------------------------------------------
