@@ -2,18 +2,7 @@
 <samp>
 <h1>tianwei-io-api</h1>
 
-REST API service for tianwei.io built with Hono.
-
-This repository serves as the API layer for my personal website [tianwei.io](https://tianwei.io).
-
-<h2>Features</h2>
-
-- **Type-Safe API**: Full TypeScript with Zod runtime validation for requests and responses
-- **Rate Limiting**: IP-based throttling in prod to prevent abuse
-- **CORS Support**: Configurable cross-origin resource sharing for frontend integration
-- **Health Checks**: Standard `/health` endpoint for deployment monitoring
-- **Graceful Shutdown**: Proper signal handling with database connection cleanup
-- **Dev Mode**: Environment-aware endpoints for local testing and debugging
+The API layer of my personal website [tianwei.io](https://tianwei.io).
 
 <h2>Stack</h2>
 
@@ -23,6 +12,21 @@ This repository serves as the API layer for my personal website [tianwei.io](htt
 - **ORM**: [Drizzle ORM](https://orm.drizzle.team)
 - **Validation**: [Zod](https://zod.dev)
 - **Deployment**: [Fly.io](https://fly.io)
+
+<h2>Site Architecture</h2>
+
+- **[Frontend](https://github.com/notbd/tianwei.io)**: a Next.js application rendering content from the API dynamically using SSR with optimized caching strategies.
+- **[API Layer](https://github.com/notbd/tianwei-io-api)**: a Hono service (Node.js) that serves content data from the content engine via REST endpoints.
+- **[Content Engine](https://github.com/notbd/tianwei-io-content)**: a dedicated repo that stores, parses and syncs MDX to a remote PostgreSQL database.
+
+<h2>Features</h2>
+
+- **Type-Safe API**: Full TypeScript with Zod runtime validation for requests and responses
+- **Rate Limiting**: IP-based throttling in prod to prevent abuse
+- **CORS Support**: Configurable cross-origin resource sharing for frontend integration
+- **Health Checks**: Standard `/health` endpoint for deployment monitoring
+- **Graceful Shutdown**: Proper signal handling with database connection cleanup
+- **Dev Mode**: Environment-aware endpoints for local testing and debugging
 
 <h2>Endpoints</h2>
 
@@ -67,16 +71,16 @@ pnpm run test:endpoints
 
 These tests cover:
 
-- Env loading and local DB connection (including a simple `SELECT 1`)
+- Env loading and local DB connection
 - Remote DB connection and `posts` table visibility
 - API responses for basic routes, data endpoints, slug validation, 404 handling, and CORS
 
-<h2>Environment Configuration</h2>
+<h2>Env Configuration</h2>
 
 The API supports both local and production environments:
 
-- **Local**: Reads from `.env.local`, connects to local Docker Postgres by default (configurable)
-- **Production**: Uses environment variables from Fly.io, always connects to remote DB instance
+- **Dev**: Reads from `.env.local`, connects to local Docker Postgres by default (configurable)
+- **Production**: Uses environment variables from Fly.io, always connects to the remote DB instance
 
 Connection behavior:
 
@@ -87,5 +91,6 @@ Connection behavior:
 
 <h2>License</h2>
 
-Source code is licensed under <a href='./LICENSE'>AGPLv3</a>.
+Source code is licensed under <a href='./LICENSE'>AGPLv3</a>,<br>
+The content is licensed under <a href='https://creativecommons.org/licenses/by-nc-sa/4.0/'>CC BY-NC-SA 4.0</a>.
 </samp>
