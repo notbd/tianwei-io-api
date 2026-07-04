@@ -5,16 +5,16 @@
 # vscode
 .vscode
 
-# prod
-dist/
-build/
-
 # deps
 node_modules/
 
-# Ignore all .env files except `.env.example`
+# wrangler
+.wrangler/
+.dev.vars
+worker-configuration.d.ts
+
+# env files
 .env*
-!.env.example
 
 # logs
 logs/
