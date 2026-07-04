@@ -1,14 +1,14 @@
+import type { AppEnv } from '@/context'
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
-import { fetchPostBySlug } from '@/lib/posts'
 import { apiRes } from '@/lib/responses'
 import { validationErrorHook } from '@/lib/validation'
 import { slugParam } from '@/schemas'
 
 /**
- * /api/post/:slug - Returns one post (full detail including content).
+ * GET /api/post/:slug - Returns one post (full detail including content).
  */
-const postRoute = new Hono()
+const postRoute = new Hono<AppEnv>()
 
 postRoute.get(
   '/post/:slug',
@@ -17,7 +17,7 @@ postRoute.get(
     const { slug } = c.req.valid('param')
 
     try {
-      const post = await fetchPostBySlug(slug)
+      const post = await c.get('repo').fetchPostBySlug(slug)
 
       if (!post) {
         return apiRes.err(c, 'Post not found.', 404)

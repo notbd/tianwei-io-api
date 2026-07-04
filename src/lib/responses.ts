@@ -34,7 +34,7 @@ export const apiRes = {
   /**
    * Return an error response with a message.
    */
-  err(c: Context, message: string, status: 400 | 404 | 429 | 500 = 500) {
+  err(c: Context, message: string, status: 400 | 401 | 404 | 429 | 500 = 500) {
     return c.json(
       {
         status: 'error',

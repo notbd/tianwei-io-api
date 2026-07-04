@@ -1,15 +1,15 @@
+import type { AppEnv } from '@/context'
 import { Hono } from 'hono'
-import { fetchCategories } from '@/lib/categories'
 import { apiRes } from '@/lib/responses'
 
 /**
- * /api/categories - Retrieves list of unique post categories.
+ * GET /api/categories - Retrieves list of unique post categories.
  */
-const categoriesRoute = new Hono()
+const categoriesRoute = new Hono<AppEnv>()
 
 categoriesRoute.get('/categories', async (c) => {
   try {
-    const categories = await fetchCategories()
+    const categories = await c.get('repo').fetchCategories()
 
     return apiRes.list(c, categories)
   }

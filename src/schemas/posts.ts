@@ -12,6 +12,7 @@ export const postSchema = z.object({
   description: z.string().nullable(),
   author: z.string(),
   createdAt: z.date(),
+  updatedAt: z.date().nullable(),
   isPublished: z.boolean(),
   content: z.string(),
 })

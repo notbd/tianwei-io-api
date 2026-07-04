@@ -22,6 +22,9 @@ export const posts = pgTable('posts', {
 
   createdAt: timestamp('created_at', { mode: 'date' }).notNull(),
 
+  // optional last-updated date; null means "never updated since publish"
+  updatedAt: timestamp('updated_at', { mode: 'date' }),
+
   // whether this entry should be visible to the frontend
   isPublished: boolean('is_published').notNull(),
 

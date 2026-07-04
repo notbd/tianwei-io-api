@@ -1,21 +1,22 @@
-import process from 'node:process'
-import dotenv from 'dotenv'
 import { z } from 'zod'
 
 // ---------------------------------------------------------------------------
 // Environment Schema
 // ---------------------------------------------------------------------------
-// Defines and validates all required environment variables for the API service.
-// See .env.example for documentation on each variable.
+// Validates the Worker's bindings (wrangler `vars` + secrets + .dev.vars).
+// Unlike the Node.js version, there is no process-wide environment: bindings
+// arrive per request on `c.env`, so validation happens per request and is
+// memoized on the bindings object (stable for the lifetime of an isolate).
 // ---------------------------------------------------------------------------
 
 const EnvSchema = z.object({
-  // Runtime environment: controls behavior like dev-only routes and logging
+  // Runtime environment: controls dev-only routes and request logging.
+  // Kept as NODE_ENV so /health's `env` field is unchanged from the fly.io era.
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
     .default('development'),
 
-  // Primary database connection (local Docker or remote prod)
+  // Neon connection string (Worker secret in production, .dev.vars locally)
   DATABASE_URL: z
     .string()
     .min(1, 'DATABASE_URL is required')
@@ -24,21 +25,15 @@ const EnvSchema = z.object({
       'DATABASE_URL must be a valid PostgreSQL connection string',
     ),
 
-  // Remote database connection for local testing against production data
-  // Optional - only used by test scripts
-  DATABASE_URL_REMOTE: z
+  // Bearer token for the draft-preview endpoint (/api/__preview/*).
+  // When unset, the endpoint answers with the standard 404 shape.
+  PREVIEW_SECRET: z
     .string()
-    .refine(
-      url => !url || url.startsWith('postgresql://') || url.startsWith('postgres://'),
-      'DATABASE_URL_REMOTE must be a valid PostgreSQL connection string',
-    )
+    .min(16, 'PREVIEW_SECRET must be at least 16 characters')
     .optional(),
 
-  // Port for the Hono server to listen on
-  PORT: z.coerce.number().int().positive().default(3001),
-
-  // Comma-separated list of allowed CORS origins
-  // If empty or omitted, CORS middleware is not applied
+  // Comma-separated list of allowed CORS origins.
+  // If empty or omitted, CORS middleware is not applied.
   ALLOWED_ORIGINS: z
     .string()
     .optional()
@@ -51,54 +46,31 @@ const EnvSchema = z.object({
 
 export type Env = z.infer<typeof EnvSchema>
 
-// ---------------------------------------------------------------------------
-// Environment Loading
-// ---------------------------------------------------------------------------
-// In development: loads from .env.local file
-// In production: expects variables to be set by the deployment platform
-// ---------------------------------------------------------------------------
+/** Raw bindings shape the Worker receives (see wrangler.jsonc / .dev.vars). */
+export interface WorkerBindings {
+  NODE_ENV?: string
+  DATABASE_URL?: string
+  PREVIEW_SECRET?: string
+  ALLOWED_ORIGINS?: string
+}
 
-let cachedEnv: Env | null = null
+const parsedCache = new WeakMap<object, Env>()
 
-export function getEnv(): Env {
-  if (cachedEnv) {
-    return cachedEnv
-  }
+/**
+ * Validate bindings into a typed Env. Throws on invalid configuration —
+ * surfaced as a 500 by the app-level error handler.
+ */
+export function parseEnv(bindings: WorkerBindings): Env {
+  const cached = parsedCache.get(bindings)
+  if (cached)
+    return cached
 
-  // Only load .env.local in non-production environments
-  if (process.env.NODE_ENV !== 'production') {
-    dotenv.config({ path: '.env.local' })
-  }
-
-  const parsed = EnvSchema.safeParse({
-    NODE_ENV: process.env.NODE_ENV,
-    DATABASE_URL: process.env.DATABASE_URL,
-    DATABASE_URL_REMOTE: process.env.DATABASE_URL_REMOTE,
-    PORT: process.env.PORT,
-    ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS,
-  })
-
+  const parsed = EnvSchema.safeParse(bindings)
   if (!parsed.success) {
-    console.error('Environment validation failed:')
-    console.error(z.treeifyError(parsed.error))
+    console.error('Environment validation failed:', z.treeifyError(parsed.error))
     throw new Error('Invalid environment configuration')
   }
 
-  cachedEnv = parsed.data
-  return cachedEnv
-}
-
-// Clear cached env (useful for testing)
-export function clearEnvCache(): void {
-  cachedEnv = null
-}
-
-// Helper to check if running in production
-export function isProd(): boolean {
-  return getEnv().NODE_ENV === 'production'
-}
-
-// Helper to check if running in development
-export function isDev(): boolean {
-  return getEnv().NODE_ENV === 'development'
+  parsedCache.set(bindings, parsed.data)
+  return parsed.data
 }
