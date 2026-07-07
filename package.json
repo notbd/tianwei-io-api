@@ -26,7 +26,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^6.7.3",
+    "@antfu/eslint-config": "^9.1.0",
     "@electric-sql/pglite": "^0.5.4",
     "drizzle-kit": "^0.31.8",
     "eslint": "^9.39.2",
