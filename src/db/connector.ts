@@ -1,61 +1,31 @@
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
-import { drizzle } from 'drizzle-orm/node-postgres'
-import { Pool } from 'pg'
-import { getEnv } from '@/env'
+import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
+import type * as schemaShape from './schema'
+import { neon } from '@neondatabase/serverless'
+import { drizzle } from 'drizzle-orm/neon-http'
 import * as schema from './schema'
 
 // ---------------------------------------------------------------------------
-// Database Connection Pool
+// Database Access (Cloudflare Workers)
 // ---------------------------------------------------------------------------
-// Maintains a singleton database connection pool.
-// - Development: connects to local Docker Postgres or remote db (configurable)
-// - Production: always connects to remote db (DATABASE_URL from platform secrets)
+// Uses Neon's HTTP driver: each query is a single stateless fetch to Neon's
+// proxy — no TCP sockets, no connection pool, nothing to clean up on
+// shutdown. Ideal for this API's one-query-per-request, read-only profile.
 // ---------------------------------------------------------------------------
 
-let cached: {
-  db: NodePgDatabase<typeof schema> | null
-  pool: Pool | null
-} = { db: null, pool: null }
+/**
+ * Common Postgres-flavoured Drizzle type over our schema.
+ * Satisfied by both neon-http (production) and PGlite (tests), so query
+ * code and the repo layer stay driver-agnostic.
+ */
+export type Database = PgDatabase<PgQueryResultHKT, typeof schemaShape>
 
-export async function getDB(): Promise<NodePgDatabase<typeof schema>> {
-  if (cached.db) {
-    return cached.db
+const dbCache = new Map<string, Database>()
+
+export function getDB(databaseUrl: string): Database {
+  let db = dbCache.get(databaseUrl)
+  if (!db) {
+    db = drizzle(neon(databaseUrl), { schema })
+    dbCache.set(databaseUrl, db)
   }
-
-  try {
-    const env = getEnv()
-
-    const pool = new Pool({
-      connectionString: env.DATABASE_URL,
-    })
-
-    const db = drizzle(pool, { schema })
-    cached = { db, pool }
-
-    return db
-  }
-  catch (err) {
-    console.error('Failed to initialize database connection:', err)
-    throw new Error('Database connection error')
-  }
-}
-
-export async function closeDB(): Promise<void> {
-  try {
-    if (cached.pool) {
-      await cached.pool.end()
-      cached.pool = null
-    }
-    cached.db = null
-  }
-  catch (err) {
-    console.warn('Error closing database pool:', err)
-  }
-}
-
-export async function getPool(): Promise<Pool | null> {
-  if (!cached.pool) {
-    await getDB()
-  }
-  return cached.pool
+  return db
 }

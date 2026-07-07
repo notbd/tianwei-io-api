@@ -7,39 +7,38 @@ The API layer of my personal website [tianwei.io](https://tianwei.io).
 <h2>Stack</h2>
 
 - **Framework**: [Hono](https://hono.dev)
-- **Runtime**: [Node.js](https://nodejs.org/)
-- **Database**: [PostgreSQL](https://www.postgresql.org/)
+- **Runtime**: [Cloudflare Workers](https://workers.cloudflare.com)
+- **Database**: [PostgreSQL](https://www.postgresql.org/) on [Neon](https://neon.tech), via the [neon-http](https://neon.tech/docs/serverless/serverless-driver) driver
 - **ORM**: [Drizzle ORM](https://orm.drizzle.team)
 - **Validation**: [Zod](https://zod.dev)
-- **Deployment**: [Fly.io](https://fly.io)
+- **Testing**: [Vitest](https://vitest.dev) + [PGlite](https://pglite.dev) (in-memory Postgres)
 
 <h2>Site Architecture</h2>
 
-- **[Frontend](https://github.com/notbd/tianwei.io)**: a Next.js application rendering content from the API dynamically using SSR with optimized caching strategies.
-- **[API Layer](https://github.com/notbd/tianwei-io-api)**: a Hono service (Node.js) that serves content data from the content engine via REST endpoints.
+- **[Frontend](https://github.com/notbd/tianwei.io)**: a Next.js application rendering content from the API with static generation and on-demand revalidation.
+- **[API Layer](https://github.com/notbd/tianwei-io-api)**: this repo — a Hono service on Cloudflare Workers serving content data via REST endpoints.
 - **[Content Engine](https://github.com/notbd/tianwei-io-content)**: a dedicated repo that stores, parses and syncs MDX to a remote PostgreSQL database.
 
-<h2>Features</h2>
+<h2>Design Notes</h2>
 
-- **Type-Safe API**: Full TypeScript with Zod runtime validation for requests and responses
-- **Rate Limiting**: IP-based throttling in prod to prevent abuse
-- **CORS Support**: Configurable cross-origin resource sharing for frontend integration
-- **Health Checks**: Standard `/health` endpoint for deployment monitoring
-- **Graceful Shutdown**: Proper signal handling with database connection cleanup
-- **Dev Mode**: Environment-aware endpoints for local testing and debugging
+- **Stateless by construction**: every request is one HTTP query to Neon — no pools, no sockets, no shutdown hooks. The Worker runs with smart placement, so it executes near the database rather than near the caller.
+- **No API-level caching** (`Cache-Control: no-store`): the frontend's Next.js data cache with on-demand revalidation is the single cache layer; caching here too would serve stale data after a content sync.
+- **Rate limiting** is delegated to a Cloudflare zone rule instead of application code — the old in-memory limiter is meaningless across Worker isolates.
+- **Repository boundary**: handlers depend on a `PostsRepo` interface; production wires Drizzle over neon-http, tests inject fakes (contract tests) or PGlite (SQL tests).
 
 <h2>Endpoints</h2>
 
 - `GET /` - Root endpoint (returns greeting)
 - `GET /health` - Health check endpoint
-- `GET /api/posts` - List all published posts
-- `GET /api/categories` - List all categories
-- `GET /api/post/:slug` - Get a single post by slug
+- `GET /api/posts` - List all published posts (summary shape, newest first)
+- `GET /api/categories` - List distinct categories of published posts
+- `GET /api/post/:slug` - Get a single post by slug (full content)
 - `GET /api/__dev/posts` - Dev-only endpoint (includes unpublished posts)
+- `GET /api/__preview/post/:slug` - Draft preview for the frontend's draftMode; requires `Authorization: Bearer <PREVIEW_SECRET>` and answers 404 unless the secret is configured
 
 All API endpoints return JSON responses with a consistent structure:
 
-- Success: `{ status: "success", data: ... }`
+- Success: `{ status: "success", data: ... }` (lists add `count`)
 - Error: `{ status: "error", message: ... }`
 
 <h2>Local Run</h2>
@@ -49,45 +48,33 @@ git clone git@github.com:notbd/tianwei-io-api.git
 cd tianwei-io-api
 pnpm install
 
-# Set up a `.env.local` file according to the instructions in `.env.example`
-# Start local dev server with pnpm
-pnpm run dev
+# Copy .dev.vars.example to .dev.vars and point DATABASE_URL
+# at a Neon dev branch, then:
+pnpm dev
 ```
 
 <h2>Testing</h2>
 
-The project includes several test scripts:
-
 ```shell
-# Validate env loader and local DB connectivity
-pnpm run test:env-db
-
-# Validate remote (production) DB connectivity and posts table
-pnpm run test:remote-db
-
-# Validate API behavior (requires server + DB running)
-pnpm run test:endpoints
+pnpm test        # contract tests (exact JSON shapes) + repo tests (real SQL on PGlite)
+pnpm typecheck
+pnpm lint
 ```
 
-These tests cover:
+The contract suite pins the exact wire format the frontend depends on — endpoint envelopes, error messages, slug validation, CORS and cache headers. The repo suite runs the real queries against an in-memory Postgres.
 
-- Env loading and local DB connection
-- Remote DB connection and `posts` table visibility
-- API responses for basic routes, data endpoints, slug validation, 404 handling, and CORS
+For deploy verification, `pnpm smoke <baseline-url> <candidate-url>` diffs every endpoint between two live deployments (byte-identical, modulo explicitly allowed additive fields).
 
-<h2>Env Configuration</h2>
+> **Deploy order**: this Worker selects the `updated_at` column, so the content engine's migration `0003_add_updated_at` must be applied (merge + deploy tianwei-io-content) **before** the first Worker deploy — additive contract evolution flows content → api → frontend.
 
-The API supports both local and production environments:
+<h2>Configuration</h2>
 
-- **Dev**: Reads from `.env.local`, connects to local Docker Postgres by default (configurable)
-- **Production**: Uses environment variables from Fly.io, always connects to the remote DB instance
+- `NODE_ENV`, `ALLOWED_ORIGINS`: plain vars in `wrangler.jsonc` (production) / `.dev.vars` (local)
+- `DATABASE_URL`: Worker secret — `pnpm wrangler secret put DATABASE_URL`
+- `PREVIEW_SECRET` (optional): Worker secret enabling the draft-preview endpoint
 
-Connection behavior:
-
-- Local dev can connect to either local or remote database for testing
-- Production deployment always connects to remote database
-- CORS is configurable via `ALLOWED_ORIGINS` environment variable
-- Rate limiting (100 requests per IP per hour) is enabled in prod
+Design records live in [`docs/adr/`](./docs/adr/).
+- CI deploys on push to `main` via `cloudflare/wrangler-action` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` repo secrets)
 
 <h2>License</h2>
 

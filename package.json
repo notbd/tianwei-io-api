@@ -1,32 +1,37 @@
 {
   "name": "tianwei-io-api",
   "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.23.0",
+  "description": "API layer for tianwei.io — Hono on Cloudflare Workers, serving content from Neon Postgres",
+  "author": "Tianwei Zhang",
+  "license": "AGPL-3.0-only",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsup src/index.ts --format esm --dts",
-    "start": "node dist/index.js",
-    "test:env-db": "tsx tests/test-env-db.ts",
-    "test:remote-db": "tsx tests/test-remote-db.ts",
-    "test:endpoints": "tsx tests/test-endpoints.ts",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "cf-typegen": "wrangler types",
+    "smoke": "node scripts/smoke.mjs",
     "lint": "eslint",
-    "lint:fix": "eslint --fix"
+    "lint:fix": "eslint --fix",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
-    "@hono/node-server": "^1.19.7",
     "@hono/zod-validator": "^0.7.6",
-    "dotenv": "^17.2.3",
+    "@neondatabase/serverless": "^1.0.2",
     "drizzle-orm": "^0.44.7",
     "hono": "^4.11.1",
-    "pg": "^8.16.3",
     "zod": "^4.2.1"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^6.7.3",
-    "@types/node": "^20.19.27",
-    "@types/pg": "^8.16.0",
+    "@electric-sql/pglite": "^0.3.14",
+    "drizzle-kit": "^0.31.8",
     "eslint": "^9.39.2",
-    "tsup": "^8.5.1",
-    "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4",
+    "wrangler": "^4.47.0"
   }
 }

@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tianwei-io-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-01",
+
+  // Run near the database (Neon us-east-1) instead of near the caller:
+  // every request is one Worker->DB round trip, so DB proximity wins.
+  "placement": { "mode": "smart" },
+
+  "observability": {
+    "enabled": true
+  },
+
+  // Non-secret configuration. DATABASE_URL is a secret:
+  //   pnpm wrangler secret put DATABASE_URL
+  "vars": {
+    "NODE_ENV": "production",
+    "ALLOWED_ORIGINS": ""
+  }
+
+  // Custom domain — enable at cutover:
+  // "routes": [{ "pattern": "tio.twz.app", "custom_domain": true }]
+}
