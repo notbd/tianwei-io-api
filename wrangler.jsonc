@@ -17,8 +17,10 @@
   "vars": {
     "NODE_ENV": "production",
     "ALLOWED_ORIGINS": ""
-  }
+  },
 
-  // Custom domain — enable at cutover:
-  // "routes": [{ "pattern": "tio.twz.app", "custom_domain": true }]
+  // Custom domain (enabled at cutover 2026-07-07; Cloudflare manages the
+  // DNS record + certificate). NOTE: a deploy from a config WITHOUT this
+  // block would detach the domain — do not remove.
+  "routes": [{ "pattern": "tio.twz.app", "custom_domain": true }]
 }
