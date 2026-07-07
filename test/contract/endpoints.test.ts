@@ -196,6 +196,18 @@ describe('gET /api/__dev/posts', () => {
     expect(await res.json()).toEqual({ status: 'error', message: 'Not Found' })
     expect(calls.fetchPosts).toEqual([])
   })
+
+  it('fails CLOSED when NODE_ENV is missing entirely (defaults to production)', async () => {
+    // This route exposes drafts; a dropped/typo'd binding must not open it.
+    const { repo, calls } = createFakeRepo()
+    const app = createApp({ repo })
+    const res = await app.request('/api/__dev/posts', {}, {
+      DATABASE_URL: 'postgresql://user:pass@example.test/db',
+    })
+
+    expect(res.status).toBe(404)
+    expect(calls.fetchPosts).toEqual([])
+  })
 })
 
 describe('unmatched routes', () => {

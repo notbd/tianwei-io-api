@@ -19,19 +19,25 @@ if (!baselineBase || !candidateBase) {
   process.exit(2)
 }
 
-// Fields the candidate is allowed to ADD relative to the baseline
+// Fields either side is allowed to have that the other may lack
 // (additive contract evolution, e.g. updatedAt introduced with the
-// Workers migration). Stripped from candidate JSON before comparison.
+// Workers migration). Stripped from BOTH sides before comparison, so the
+// script also works once the baseline itself serves the new field
+// (e.g. re-running against workers.dev during the domain switch).
 const ALLOWED_NEW_FIELDS = new Set(['updatedAt'])
 
-function stripAllowedNewFields(value) {
+// Key-order-independent canonical form: sorted keys + allowed additive
+// fields removed. JSON.stringify alone would be order-sensitive and fail
+// on structurally identical bodies serialized by different codebases.
+function canonicalize(value) {
   if (Array.isArray(value))
-    return value.map(stripAllowedNewFields)
+    return value.map(canonicalize)
   if (value !== null && typeof value === 'object') {
     return Object.fromEntries(
       Object.entries(value)
         .filter(([key]) => !ALLOWED_NEW_FIELDS.has(key))
-        .map(([key, inner]) => [key, stripAllowedNewFields(inner)]),
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+        .map(([key, inner]) => [key, canonicalize(inner)]),
     )
   }
   return value
@@ -44,7 +50,7 @@ function bodiesMatch(baselineBody, candidateBody) {
   try {
     const baselineJson = JSON.parse(baselineBody)
     const candidateJson = JSON.parse(candidateBody)
-    return JSON.stringify(baselineJson) === JSON.stringify(stripAllowedNewFields(candidateJson))
+    return JSON.stringify(canonicalize(baselineJson)) === JSON.stringify(canonicalize(candidateJson))
   }
   catch {
     return false
@@ -73,6 +79,8 @@ async function fetchBody(base, path) {
 // Resolve a real slug from the baseline so the single-post check uses live data
 async function firstSlug() {
   const res = await fetch(new URL('/api/posts', baselineBase))
+  if (!res.ok)
+    throw new Error(`Baseline /api/posts responded ${res.status} — cannot resolve a post slug`)
   const json = await res.json()
   const slug = json?.data?.[0]?.slug
   if (!slug)
@@ -90,18 +98,20 @@ for (const check of CHECKS) {
     fetchBody(candidateBase, path),
   ])
 
+  const bodyMatches = check.ignoreBody || bodiesMatch(baseline.body, candidate.body)
+
   const problems = []
   if (baseline.status !== check.expectStatus)
     problems.push(`baseline status ${baseline.status} != expected ${check.expectStatus}`)
   if (candidate.status !== baseline.status)
     problems.push(`status mismatch: baseline ${baseline.status} vs candidate ${candidate.status}`)
-  if (!check.ignoreBody && !bodiesMatch(baseline.body, candidate.body))
+  if (!bodyMatches)
     problems.push(`body mismatch (${baseline.body.length}B vs ${candidate.body.length}B)`)
 
   if (problems.length > 0) {
     failures += 1
     console.error(`✗ ${path}\n    ${problems.join('\n    ')}`)
-    if (!check.ignoreBody && !bodiesMatch(baseline.body, candidate.body)) {
+    if (!bodyMatches) {
       console.error(`    baseline:  ${baseline.body.slice(0, 200)}`)
       console.error(`    candidate: ${candidate.body.slice(0, 200)}`)
     }

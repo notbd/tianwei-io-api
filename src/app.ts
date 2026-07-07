@@ -97,9 +97,12 @@ export function createApp(options: CreateAppOptions = {}) {
   // 404 handler
   app.notFound(c => apiRes.err(c, 'Not Found', 404))
 
-  // Uniform 500 shape for anything unhandled (e.g. invalid env config)
+  // Uniform 500 shape for anything unhandled (e.g. invalid env config).
+  // Errors thrown in middleware skip the /api/* no-store middleware's
+  // post-next() header, so set it here too — no 500 may ever be cached.
   app.onError((err, c) => {
     console.error('Unhandled error:', err)
+    c.header('Cache-Control', 'no-store')
     return apiRes.err(c, 'Internal Server Error', 500)
   })
 

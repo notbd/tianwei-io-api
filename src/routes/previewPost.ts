@@ -29,12 +29,20 @@ function safeEqual(a: string, b: string): boolean {
 
 previewPostRoute.get(
   '/post/:slug',
+  // The disabled state must be indistinguishable from a nonexistent route,
+  // so the 404 guard runs BEFORE slug validation (which would leak a 400).
+  async (c, next) => {
+    if (c.get('env').PREVIEW_SECRET === undefined)
+      return apiRes.err(c, 'Not Found', 404)
+    await next()
+  },
   zValidator('param', slugParam, validationErrorHook),
   async (c) => {
-    const secret = c.get('env').PREVIEW_SECRET
-    if (secret === undefined)
-      return apiRes.err(c, 'Not Found', 404)
+    // guarded above; re-read for the comparison
+    const secret = c.get('env').PREVIEW_SECRET as string
 
+    // Whole-header comparison implies a case-sensitive "Bearer" scheme
+    // (stricter than RFC 7235) — fine for the single known Next.js client.
     const authHeader = c.req.header('authorization') ?? ''
     if (!safeEqual(authHeader, `Bearer ${secret}`))
       return apiRes.err(c, 'Unauthorized', 401)

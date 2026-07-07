@@ -12,9 +12,11 @@ import { z } from 'zod'
 const EnvSchema = z.object({
   // Runtime environment: controls dev-only routes and request logging.
   // Kept as NODE_ENV so /health's `env` field is unchanged from the fly.io era.
+  // Defaults to PRODUCTION: this value gates the drafts-exposing __dev route,
+  // so a missing binding must fail closed (.dev.vars sets it explicitly).
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
-    .default('development'),
+    .default('production'),
 
   // Neon connection string (Worker secret in production, .dev.vars locally)
   DATABASE_URL: z

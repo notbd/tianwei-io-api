@@ -18,6 +18,14 @@ describe('gET /api/__preview/post/:slug', () => {
     expect(await res.json()).toEqual({ status: 'error', message: 'Not Found' })
   })
 
+  it('404s (not 400) for invalid slugs while disabled — indistinguishable from absent', async () => {
+    // A validation 400 would leak the route's existence to scanners.
+    const app = createApp({ repo: createFakeRepo().repo })
+    const res = await app.request('/api/__preview/post/BAD_SLUG', {}, bindings())
+    expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ status: 'error', message: 'Not Found' })
+  })
+
   it('401s without a token', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/api/__preview/post/draft-post', {}, previewBindings())

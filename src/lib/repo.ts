@@ -27,32 +27,29 @@ export interface PostsRepo {
 
 export function createDrizzleRepo(db: Database): PostsRepo {
   return {
+    // Driver errors propagate untouched: every route handler already
+    // catches, logs, and shapes them, and a wrapped generic error would
+    // only hide the real cause and double the logging.
     async fetchPosts(config = {}) {
-      try {
-        const whereClause
-          = config.ignorePublishStatus === true
-            ? undefined
-            : eq(posts.isPublished, true)
+      const whereClause
+        = config.ignorePublishStatus === true
+          ? undefined
+          : eq(posts.isPublished, true)
 
-        return await db
-          .select({
-            id: posts.id,
-            slug: posts.slug,
-            category: posts.category,
-            title: posts.title,
-            description: posts.description,
-            author: posts.author,
-            createdAt: posts.createdAt,
-            updatedAt: posts.updatedAt,
-          })
-          .from(posts)
-          .where(whereClause)
-          .orderBy(desc(posts.createdAt))
-      }
-      catch (err) {
-        console.error('Database query failed:', err)
-        throw new Error('Failed to query posts')
-      }
+      return db
+        .select({
+          id: posts.id,
+          slug: posts.slug,
+          category: posts.category,
+          title: posts.title,
+          description: posts.description,
+          author: posts.author,
+          createdAt: posts.createdAt,
+          updatedAt: posts.updatedAt,
+        })
+        .from(posts)
+        .where(whereClause)
+        .orderBy(desc(posts.createdAt))
     },
 
     async fetchPostBySlug(slug, config = {}) {
@@ -79,7 +76,7 @@ export function createDrizzleRepo(db: Database): PostsRepo {
         .from(posts)
         .where(eq(posts.isPublished, true))
 
-      return result.map(row => row.category).filter(Boolean)
+      return result.map(row => row.category)
     },
   }
 }
