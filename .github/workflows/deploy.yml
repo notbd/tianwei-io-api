@@ -45,7 +45,7 @@ jobs:
 
       # DATABASE_URL is a Worker secret (set once via `wrangler secret put`),
       # not a GitHub secret — deploys never touch it.
-      # Pinned to a commit SHA (v3.15.0): this job holds the account API token,
+      # Pinned to a commit SHA (v4.0.0): this job holds the account API token,
       # so a floating major tag would be a supply-chain risk.
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0
