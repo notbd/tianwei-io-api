@@ -2,7 +2,10 @@
 <samp>
 <h1>tianwei-io-api</h1>
 
-The API layer of my personal website [tianwei.io](https://tianwei.io).
+[![CI](https://github.com/notbd/tianwei-io-api/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/notbd/tianwei-io-api/actions/workflows/ci.yml)
+[![Deploy](https://github.com/notbd/tianwei-io-api/actions/workflows/deploy.yml/badge.svg?branch=main)](https://github.com/notbd/tianwei-io-api/actions/workflows/deploy.yml)
+
+The API layer of my personal website [tianwei.io](https://tianwei.io), serving at `tio.twz.app`.
 
 <h2>Stack</h2>
 
@@ -33,8 +36,8 @@ The API layer of my personal website [tianwei.io](https://tianwei.io).
 - `GET /api/posts` - List all published posts (summary shape, newest first)
 - `GET /api/categories` - List distinct categories of published posts
 - `GET /api/post/:slug` - Get a single post by slug (full content)
-- `GET /api/__dev/posts` - Dev-only endpoint (includes unpublished posts)
-- `GET /api/__preview/post/:slug` - Draft preview for the frontend's draftMode; requires `Authorization: Bearer <PREVIEW_SECRET>` and answers 404 unless the secret is configured
+- `GET /api/__dev/posts` - Dev-only endpoint (includes unpublished posts); answers the standard 404 in production
+- `GET /api/__preview/post/:slug` - Draft preview for the frontend's draftMode; requires `Authorization: Bearer <PREVIEW_SECRET>` and is indistinguishable from a 404 unless the secret is configured
 
 All API endpoints return JSON responses with a consistent structure:
 
@@ -42,6 +45,8 @@ All API endpoints return JSON responses with a consistent structure:
 - Error: `{ status: "error", message: ... }`
 
 <h2>Local Run</h2>
+
+Prerequisites: **Node.js ≥ 22** and **pnpm 10**.
 
 ```shell
 git clone git@github.com:notbd/tianwei-io-api.git
@@ -63,18 +68,18 @@ pnpm lint
 
 The contract suite pins the exact wire format the frontend depends on — endpoint envelopes, error messages, slug validation, CORS and cache headers. The repo suite runs the real queries against an in-memory Postgres.
 
-For deploy verification, `pnpm smoke <baseline-url> <candidate-url>` diffs every endpoint between two live deployments (byte-identical, modulo explicitly allowed additive fields).
+For deploy verification, `pnpm smoke <baseline-url> <candidate-url>` diffs every endpoint between two live deployments (byte-identical, modulo explicitly allowed additive fields). The fly.io → Workers migration itself followed [`docs/cutover.md`](./docs/cutover.md).
 
-> **Deploy order**: this Worker selects the `updated_at` column, so the content engine's migration `0003_add_updated_at` must be applied (merge + deploy tianwei-io-content) **before** the first Worker deploy — additive contract evolution flows content → api → frontend.
+> **Contract evolution rule**: this Worker selects every column its schema declares, so a new column must land in the database (merge + deploy tianwei-io-content) **before** the Worker's schema references it — additive changes always flow content → api → frontend. (Example: `updated_at`, added at the 2026-07 cutover.)
 
 <h2>Configuration</h2>
 
 - `NODE_ENV`, `ALLOWED_ORIGINS`: plain vars in `wrangler.jsonc` (production) / `.dev.vars` (local)
 - `DATABASE_URL`: Worker secret — `pnpm wrangler secret put DATABASE_URL`
 - `PREVIEW_SECRET` (optional): Worker secret enabling the draft-preview endpoint
+- CI deploys on push to `main` via `cloudflare/wrangler-action` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` repo secrets)
 
 Design records live in [`docs/adr/`](./docs/adr/).
-- CI deploys on push to `main` via `cloudflare/wrangler-action` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` repo secrets)
 
 <h2>License</h2>
 

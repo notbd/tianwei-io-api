@@ -20,18 +20,18 @@
   },
   "dependencies": {
     "@hono/zod-validator": "^0.8.0",
-    "@neondatabase/serverless": "^1.0.2",
+    "@neondatabase/serverless": "^1.1.0",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.28",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^6.7.3",
+    "@antfu/eslint-config": "^9.1.0",
     "@electric-sql/pglite": "^0.5.4",
-    "drizzle-kit": "^0.31.8",
-    "eslint": "^9.39.2",
-    "typescript": "^5.9.3",
-    "vitest": "^3.2.4",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^10.6.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10",
     "wrangler": "^4.108.0"
   }
 }
