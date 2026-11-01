@@ -22,5 +22,11 @@
   // Custom domain (enabled at cutover 2026-07-07; Cloudflare manages the
   // DNS record + certificate). NOTE: a deploy from a config WITHOUT this
   // block would detach the domain — do not remove.
-  "routes": [{ "pattern": "tio.twz.app", "custom_domain": true }]
+  "routes": [{ "pattern": "tio.twz.app", "custom_domain": true }],
+
+  // workers.dev and version preview URLs stay off: tio.twz.app is the only
+  // entry point. Stated explicitly because workers_dev would default back to
+  // true if `routes` were ever emptied.
+  "workers_dev": false,
+  "preview_urls": false
 }
