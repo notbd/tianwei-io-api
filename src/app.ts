@@ -19,8 +19,8 @@ export interface CreateAppOptions {
 /**
  * Build the Worker's Hono app.
  *
- * Note on shape: on Workers there is no boot phase — configuration arrives
- * per request via `c.env` — so everything the Node.js version decided at
+ * Note on shape: on Workers there is no boot phase (configuration arrives
+ * per request via `c.env`), so everything the Node.js version decided at
  * startup (env validation, CORS on/off, dev-only logging and routes) is
  * decided per request here, memoized where it matters.
  */
@@ -61,7 +61,7 @@ export function createApp(options: CreateAppOptions = {}) {
 
   // The ONLY cache layer for content is the Next.js frontend (data cache
   // with on-demand revalidation). Any edge/API caching here would serve
-  // stale data after a content sync — forbid it explicitly.
+  // stale data after a content sync; forbid it explicitly.
   app.use('/api/*', async (c, next) => {
     await next()
     c.header('Cache-Control', 'no-store')

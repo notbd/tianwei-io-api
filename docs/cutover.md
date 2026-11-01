@@ -31,18 +31,18 @@ the final step).
 ## 2. First deploy (workers.dev only)
 
 - [ ] Merge the API PR to `main` → deploy workflow runs
-      (or manually: `pnpm run deploy` — plain `pnpm deploy` is a pnpm
+      (or manually: `pnpm run deploy`; plain `pnpm deploy` is a pnpm
       built-in, not this script).
 - [ ] Smoke against the live fly baseline:
-      `pnpm smoke https://tio.twz.app https://tianwei-io-api.<account>.workers.dev`
-      — all checks must pass (the script allows `updatedAt` as a known
+      `pnpm smoke https://tio.twz.app https://tianwei-io-api.<account>.workers.dev`;
+      all checks must pass (the script allows `updatedAt` as a known
       additive field).
 
 ## 3. Domain switch (twz.app zone is already on Cloudflare)
 
 - [ ] Delete the existing `tio` DNS record pointing at fly.
 - [ ] Uncomment the `routes` block in `wrangler.jsonc`
-      (`tio.twz.app`, custom_domain) and deploy — Cloudflare provisions
+      (`tio.twz.app`, custom_domain) and deploy; Cloudflare provisions
       DNS + certificate automatically.
 - [ ] Re-run smoke against `https://tio.twz.app` (baseline: workers.dev URL).
 
@@ -55,7 +55,7 @@ the final step).
 - [ ] TTFB comparison vs the baseline recorded in the API PR
       (fly cold ~1.3s / warm 85–450ms).
 - [ ] Vercel: confirm `CONTENT_API_URL` still points at `https://tio.twz.app`
-      (unchanged — the domain moved, not the URL).
+      (unchanged: the domain moved, not the URL).
 
 ## 5. Decommission (after 1–2 weeks of soak)
 

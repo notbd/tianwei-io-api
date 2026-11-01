@@ -14,7 +14,7 @@ export interface FetchPostsConfig {
 
 /**
  * Data-access boundary for the API. Handlers depend on this interface,
- * never on a concrete driver — production wires it to Drizzle over
+ * never on a concrete driver: production wires it to Drizzle over
  * neon-http, tests inject fakes or a PGlite-backed instance.
  */
 export interface PostsRepo {

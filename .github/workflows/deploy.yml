@@ -52,7 +52,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # DATABASE_URL is a Worker secret (set once via `wrangler secret put`),
-      # not a GitHub secret — deploys never touch it.
+      # not a GitHub secret; deploys never touch it.
       # Pinned to a commit SHA: this job holds the account API token,
       # so a floating major tag would be a supply-chain risk.
       - name: Deploy to Cloudflare Workers
@@ -61,7 +61,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      # The deploy step succeeding only means the upload worked — verify the
+      # The deploy step succeeding only means the upload worked; verify the
       # Worker actually serves and can read every column the API selects
       # (/api/posts reads updated_at, so a missing content migration fails
       # here). Retries only absorb transient network errors: a 200 from the

@@ -19,14 +19,14 @@ The API layer of my personal website [tianwei.io](https://tianwei.io), served at
 <h2>Site Architecture</h2>
 
 - **[Frontend](https://github.com/notbd/tianwei.io)**: a Next.js application rendering content from the API with static generation and on-demand revalidation.
-- **[API Layer](https://github.com/notbd/tianwei-io-api)**: this repo — a Hono service on Cloudflare Workers serving content data via REST endpoints.
+- **[API Layer](https://github.com/notbd/tianwei-io-api)**: this repo, a Hono service on Cloudflare Workers serving content data via REST endpoints.
 - **[Content Engine](https://github.com/notbd/tianwei-io-content)**: a dedicated repo that stores, parses and syncs MDX to a remote PostgreSQL database.
 
 <h2>Design Notes</h2>
 
-- **Stateless by construction**: every request is one HTTP query to Neon — no pools, no sockets, no shutdown hooks. `placement.mode` is `smart`; in practice the main callers are Vercel's ISR functions (default region `iad1`, us-east-1, next to Neon) and Vercel builds, so the Worker runs where the request arrives.
+- **Stateless by construction**: every request is one HTTP query to Neon, with no pools, no sockets and no shutdown hooks. `placement.mode` is `smart`; in practice the main callers are Vercel's ISR functions (default region `iad1`, us-east-1, next to Neon) and Vercel builds, so the Worker runs where the request arrives.
 - **No API-level caching** (`Cache-Control: no-store`): the frontend's Next.js data cache with on-demand revalidation is the single cache layer; caching here too would serve stale data after a content sync.
-- **Rate limiting** belongs in a Cloudflare zone rule (configure it in the Cloudflare dashboard; it is not tracked in this repo) instead of application code — the old in-memory limiter is meaningless across Worker isolates.
+- **Rate limiting** belongs in a Cloudflare zone rule (configure it in the Cloudflare dashboard; it is not tracked in this repo) instead of application code: the old in-memory limiter is meaningless across Worker isolates.
 - **Repository boundary**: handlers depend on a `PostsRepo` interface; production wires Drizzle over neon-http, tests inject fakes (contract tests) or PGlite (SQL tests).
 - **Two routers, one error path**: `src/routes/posts.ts` holds the public reads and `src/routes/drafts.ts` the two reads that include unpublished posts. A failed read throws an `HTTPException` carrying that endpoint's public message (`failWith` in `src/lib/responses.ts`), and `app.onError` logs the cause once and answers the error envelope.
 
@@ -67,16 +67,16 @@ pnpm typecheck
 pnpm lint
 ```
 
-The contract suite pins the exact wire format the frontend depends on — endpoint envelopes, error messages, slug validation, CORS and cache headers. The repo suite runs the real queries against an in-memory Postgres.
+The contract suite pins the exact wire format the frontend depends on: endpoint envelopes, error messages, slug validation, CORS and cache headers. The repo suite runs the real queries against an in-memory Postgres.
 
 For deploy verification, `pnpm smoke <baseline-url> <candidate-url>` compares every endpoint between two live deployments: status codes plus bodies as canonical JSON (key order ignored, the `/health` body skipped, explicitly allowed additive fields dropped). The fly.io → Workers migration itself followed [`docs/cutover.md`](./docs/cutover.md).
 
-> **Contract evolution rule**: this Worker selects every column its schema declares, so a new column must land in the database (merge + deploy tianwei-io-content) **before** the Worker's schema references it — additive changes always flow content → api → frontend. (Example: `updated_at`, added at the 2026-07 cutover.)
+> **Contract evolution rule**: this Worker selects every column its schema declares, so a new column must land in the database (merge + deploy tianwei-io-content) **before** the Worker's schema references it; additive changes always flow content → api → frontend. (Example: `updated_at`, added at the 2026-07 cutover.)
 
 <h2>Configuration</h2>
 
 - `NODE_ENV`, `ALLOWED_ORIGINS`: plain vars in `wrangler.jsonc` (production) / `.dev.vars` (local)
-- `DATABASE_URL`: Worker secret — `pnpm wrangler secret put DATABASE_URL`
+- `DATABASE_URL`: Worker secret (`pnpm wrangler secret put DATABASE_URL`)
 - `PREVIEW_SECRET` (optional): Worker secret enabling the draft-preview endpoint. An invalid value (shorter than 16 characters) only disables preview and logs why; it never takes the public endpoints down.
 - `worker-configuration.d.ts`: workerd runtime types that `src/` is type-checked against; regenerate with `pnpm cf-typegen` after bumping `wrangler` or `compatibility_date`
 - CI deploys on push to `main` via `cloudflare/wrangler-action` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` repo secrets)

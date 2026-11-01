@@ -84,7 +84,7 @@ export function createFakeRepo(posts: Post[] = FIXTURE_POSTS) {
   return { repo, calls }
 }
 
-/** A repo whose every method fails — for 500-path contract tests. */
+/** A repo whose every method fails, for 500-path contract tests. */
 export function createThrowingRepo(): PostsRepo {
   const boom = async () => {
     throw new Error('Failed to query posts')

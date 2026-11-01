@@ -3,7 +3,7 @@ import { createApp } from '@/app'
 import { bindings, createFakeRepo, createThrowingRepo } from '../helpers/fake-repo'
 
 // These tests pin the EXACT wire contract the frontend depends on.
-// If any expected literal here changes, the frontend contract changes —
+// If any expected literal here changes, the frontend contract changes;
 // that is a breaking change, not a test to casually update.
 
 describe('/', () => {

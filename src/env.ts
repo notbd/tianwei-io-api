@@ -61,7 +61,7 @@ export type WorkerBindings = Partial<Record<keyof Env, string>>
 const parsedCache = new WeakMap<object, Env>()
 
 /**
- * Validate bindings into a typed Env. Throws on invalid configuration —
+ * Validate bindings into a typed Env. Throws on invalid configuration,
  * surfaced as a 500 by the app-level error handler.
  */
 export function parseEnv(bindings: WorkerBindings): Env {

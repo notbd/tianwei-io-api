@@ -30,7 +30,7 @@ describe('/api/__preview/post/:slug', () => {
     expect(await preview.json()).toEqual({ status: 'error', message: 'Not Found' })
   })
 
-  it('404s (not 400) for invalid slugs while disabled — indistinguishable from absent', async () => {
+  it('404s (not 400) for invalid slugs while disabled: indistinguishable from absent', async () => {
     // A validation 400 would leak the route's existence to scanners.
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/api/__preview/post/BAD_SLUG', {}, bindings())
@@ -97,7 +97,7 @@ describe('/api/__preview/post/:slug', () => {
     expect(res.status).toBe(400)
   })
 
-  it('401s (not 400) for an invalid slug with a wrong token — auth runs first', async () => {
+  it('401s (not 400) for an invalid slug with a wrong token: auth runs first', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/api/__preview/post/BAD_SLUG', {
       headers: { Authorization: 'Bearer wrong-token-wrong-token' },
