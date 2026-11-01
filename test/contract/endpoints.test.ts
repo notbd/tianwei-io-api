@@ -69,7 +69,9 @@ describe('gET /api/posts', () => {
   })
 
   it('returns the exact 500 shape when the data layer fails', async () => {
-    const app = createApp({ repo: createThrowingRepo() })
+    const app = createApp({
+      repo: createThrowingRepo(),
+    })
     const res = await app.request('/api/posts', {}, bindings())
     expect(res.status).toBe(500)
     expect(await res.json()).toEqual({ status: 'error', message: 'Failed to fetch posts.' })
@@ -147,7 +149,9 @@ describe('gET /api/post/:slug', () => {
   })
 
   it('returns the exact 500 shape when the data layer fails', async () => {
-    const app = createApp({ repo: createThrowingRepo() })
+    const app = createApp({
+      repo: createThrowingRepo(),
+    })
     const res = await app.request('/api/post/some-post', {}, bindings())
     expect(res.status).toBe(500)
     expect(await res.json()).toEqual({ status: 'error', message: 'Failed to fetch post.' })
@@ -167,7 +171,9 @@ describe('gET /api/categories', () => {
   })
 
   it('returns the exact 500 shape when the data layer fails', async () => {
-    const app = createApp({ repo: createThrowingRepo() })
+    const app = createApp({
+      repo: createThrowingRepo(),
+    })
     const res = await app.request('/api/categories', {}, bindings())
     expect(res.status).toBe(500)
     expect(await res.json()).toEqual({ status: 'error', message: 'Failed to fetch categories.' })
@@ -184,7 +190,9 @@ describe('gET /api/__dev/posts', () => {
     const body = await res.json() as { count: number, data: { slug: string }[] }
     expect(body.count).toBe(3)
     expect(body.data.map(row => row.slug)).toContain('draft-post')
-    expect(calls.fetchPosts).toEqual([{ ignorePublishStatus: true }])
+    expect(calls.fetchPosts).toEqual([
+      { ignorePublishStatus: true },
+    ])
   })
 
   it('answers with the standard 404 shape in production', async () => {

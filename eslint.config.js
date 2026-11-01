@@ -14,7 +14,12 @@ export default antfu(
 
   {
     rules: {
-      'no-console': ['error', { allow: ['warn', 'error', 'info', 'dir'] }],
+      'no-console': [
+        'error',
+        {
+          allow: ['warn', 'error', 'info', 'dir'],
+        },
+      ],
     },
   },
 )

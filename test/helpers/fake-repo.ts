@@ -74,7 +74,9 @@ export function createFakeRepo(posts: Post[] = FIXTURE_POSTS) {
     },
 
     async fetchCategories() {
-      return [...new Set(posts.filter(post => post.isPublished).map(post => post.category))]
+      return [
+        ...new Set(posts.filter(post => post.isPublished).map(post => post.category)),
+      ]
     },
   }
 
