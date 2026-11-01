@@ -5,13 +5,13 @@
 [![CI](https://github.com/notbd/tianwei-io-api/actions/workflows/ci.yml/badge.svg)](https://github.com/notbd/tianwei-io-api/actions/workflows/ci.yml)
 [![Deploy](https://github.com/notbd/tianwei-io-api/actions/workflows/deploy.yml/badge.svg?branch=main)](https://github.com/notbd/tianwei-io-api/actions/workflows/deploy.yml)
 
-The API layer of my personal website [tianwei.io](https://tianwei.io), serving at `tio.twz.app`.
+The API layer of my personal website [tianwei.io](https://tianwei.io), served at `tio.twz.app`.
 
 <h2>Stack</h2>
 
 - **Framework**: [Hono](https://hono.dev)
 - **Runtime**: [Cloudflare Workers](https://workers.cloudflare.com)
-- **Database**: [PostgreSQL](https://www.postgresql.org/) on [Neon](https://neon.tech), via the [neon-http](https://neon.tech/docs/serverless/serverless-driver) driver
+- **Database**: [PostgreSQL](https://www.postgresql.org/) on [Neon](https://neon.com), via the [neon-http](https://neon.com/docs/serverless/serverless-driver) driver
 - **ORM**: [Drizzle ORM](https://orm.drizzle.team)
 - **Validation**: [Zod](https://zod.dev)
 - **Testing**: [Vitest](https://vitest.dev) + [PGlite](https://pglite.dev) (in-memory Postgres)
@@ -28,6 +28,7 @@ The API layer of my personal website [tianwei.io](https://tianwei.io), serving a
 - **No API-level caching** (`Cache-Control: no-store`): the frontend's Next.js data cache with on-demand revalidation is the single cache layer; caching here too would serve stale data after a content sync.
 - **Rate limiting** belongs in a Cloudflare zone rule (configure it in the Cloudflare dashboard; it is not tracked in this repo) instead of application code — the old in-memory limiter is meaningless across Worker isolates.
 - **Repository boundary**: handlers depend on a `PostsRepo` interface; production wires Drizzle over neon-http, tests inject fakes (contract tests) or PGlite (SQL tests).
+- **Two routers, one error path**: `src/routes/posts.ts` holds the public reads and `src/routes/drafts.ts` the two reads that include unpublished posts. A failed read throws an `HTTPException` carrying that endpoint's public message (`failWith` in `src/lib/responses.ts`), and `app.onError` logs the cause once and answers the error envelope.
 
 <h2>Endpoints</h2>
 
@@ -76,7 +77,7 @@ For deploy verification, `pnpm smoke <baseline-url> <candidate-url>` compares ev
 
 - `NODE_ENV`, `ALLOWED_ORIGINS`: plain vars in `wrangler.jsonc` (production) / `.dev.vars` (local)
 - `DATABASE_URL`: Worker secret — `pnpm wrangler secret put DATABASE_URL`
-- `PREVIEW_SECRET` (optional): Worker secret enabling the draft-preview endpoint
+- `PREVIEW_SECRET` (optional): Worker secret enabling the draft-preview endpoint. An invalid value (shorter than 16 characters) only disables preview and logs why; it never takes the public endpoints down.
 - `worker-configuration.d.ts`: workerd runtime types that `src/` is type-checked against; regenerate with `pnpm cf-typegen` after bumping `wrangler` or `compatibility_date`
 - CI deploys on push to `main` via `cloudflare/wrangler-action` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` repo secrets)
 

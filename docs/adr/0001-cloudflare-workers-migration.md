@@ -29,7 +29,7 @@ Sub-decisions:
   Map is meaningless on Workers (one counter per isolate per colo). One
   Cloudflare zone rate-limiting rule replaces all of it with zero code.
 - **`Cache-Control: no-store` on `/api/*`.** The frontend's Next.js data
-  cache (revalidate:false + on-demand invalidation + warming) is the single
+  cache (revalidate: false + on-demand invalidation) is the single
   cache layer in the system. Any edge/API cache here would serve stale
   content after a sync — see the frontend repo's ADR on the single cache
   layer.
