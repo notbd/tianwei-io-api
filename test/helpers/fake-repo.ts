@@ -1,5 +1,4 @@
-import type { FetchPostsConfig, PostsRepo } from '@/lib/repo'
-import type { Post } from '@/schemas'
+import type { FetchPostsConfig, Post, PostsRepo } from '@/lib/repo'
 
 // Dates are ET midnight, as the content engine stores them
 // (T05:00Z while EST is in effect, T04:00Z under EDT).

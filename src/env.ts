@@ -48,13 +48,8 @@ const EnvSchema = z.object({
 
 export type Env = z.infer<typeof EnvSchema>
 
-/** Raw bindings shape the Worker receives (see wrangler.jsonc / .dev.vars). */
-export interface WorkerBindings {
-  NODE_ENV?: string
-  DATABASE_URL?: string
-  PREVIEW_SECRET?: string
-  ALLOWED_ORIGINS?: string
-}
+/** Raw bindings the Worker receives (wrangler.jsonc vars, secrets, .dev.vars): unvalidated strings. */
+export type WorkerBindings = Partial<Record<keyof Env, string>>
 
 const parsedCache = new WeakMap<object, Env>()
 
