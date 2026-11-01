@@ -8,7 +8,7 @@ function previewBindings(overrides: Record<string, string> = {}) {
   return bindings({ PREVIEW_SECRET: SECRET, ...overrides })
 }
 
-describe('gET /api/__preview/post/:slug', () => {
+describe('/api/__preview/post/:slug', () => {
   it('behaves as a standard 404 when PREVIEW_SECRET is not configured', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/api/__preview/post/draft-post', {

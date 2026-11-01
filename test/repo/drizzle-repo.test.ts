@@ -1,7 +1,7 @@
 import { PGlite } from '@electric-sql/pglite'
 import { pushSchema } from 'drizzle-kit/api'
 import { drizzle } from 'drizzle-orm/pglite'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import * as schema from '@/db/schema'
 import { createDrizzleRepo } from '@/lib/repo'
 
@@ -10,7 +10,8 @@ import { createDrizzleRepo } from '@/lib/repo'
 let client: PGlite
 let repo: ReturnType<typeof createDrizzleRepo>
 
-beforeEach(async () => {
+// One database for the whole file: every test below is read-only.
+beforeAll(async () => {
   client = new PGlite()
   const db = drizzle(client, { schema })
 
@@ -64,10 +65,10 @@ beforeEach(async () => {
     },
   ])
 
-  repo = createDrizzleRepo(db as never)
+  repo = createDrizzleRepo(db)
 })
 
-afterEach(async () => {
+afterAll(async () => {
   await client.close()
 })
 

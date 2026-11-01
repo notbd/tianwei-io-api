@@ -6,7 +6,7 @@ import { bindings, createFakeRepo, createThrowingRepo } from '../helpers/fake-re
 // If any expected literal here changes, the frontend contract changes —
 // that is a breaking change, not a test to casually update.
 
-describe('gET /', () => {
+describe('/', () => {
   it('returns the greeting as plain text', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/', {}, bindings())
@@ -15,7 +15,7 @@ describe('gET /', () => {
   })
 })
 
-describe('gET /health', () => {
+describe('/health', () => {
   it('reports status and environment', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/health', {}, bindings({ NODE_ENV: 'production' }))
@@ -24,7 +24,7 @@ describe('gET /health', () => {
   })
 })
 
-describe('gET /api/posts', () => {
+describe('/api/posts', () => {
   it('returns published summaries, newest first, in the exact envelope', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/api/posts', {}, bindings())
@@ -84,7 +84,7 @@ describe('gET /api/posts', () => {
   })
 })
 
-describe('gET /api/post/:slug', () => {
+describe('/api/post/:slug', () => {
   it('returns the full post in the exact envelope', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/api/post/newer-post', {}, bindings())
@@ -158,7 +158,7 @@ describe('gET /api/post/:slug', () => {
   })
 })
 
-describe('gET /api/categories', () => {
+describe('/api/categories', () => {
   it('returns distinct categories of published posts', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/api/categories', {}, bindings())
@@ -180,7 +180,7 @@ describe('gET /api/categories', () => {
   })
 })
 
-describe('gET /api/__dev/posts', () => {
+describe('/api/__dev/posts', () => {
   it('includes unpublished posts in development', async () => {
     const { repo, calls } = createFakeRepo()
     const app = createApp({ repo })
@@ -227,7 +227,7 @@ describe('unmatched routes', () => {
   })
 })
 
-describe('cORS', () => {
+describe('cors', () => {
   it('is absent when ALLOWED_ORIGINS is empty', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/api/posts', {
@@ -259,5 +259,7 @@ describe('environment validation', () => {
     const res = await app.request('/api/posts', {}, { NODE_ENV: 'production', DATABASE_URL: 'mysql://nope' })
     expect(res.status).toBe(500)
     expect(await res.json()).toEqual({ status: 'error', message: 'Internal Server Error' })
+    // thrown before the /api/* middleware could set it; onError must add it
+    expect(res.headers.get('cache-control')).toBe('no-store')
   })
 })
