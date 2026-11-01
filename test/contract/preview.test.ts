@@ -70,4 +70,13 @@ describe('gET /api/__preview/post/:slug', () => {
     }, previewBindings())
     expect(res.status).toBe(400)
   })
+
+  it('401s (not 400) for an invalid slug with a wrong token — auth runs first', async () => {
+    const app = createApp({ repo: createFakeRepo().repo })
+    const res = await app.request('/api/__preview/post/BAD_SLUG', {
+      headers: { Authorization: 'Bearer wrong-token-wrong-token' },
+    }, previewBindings())
+    expect(res.status).toBe(401)
+    expect(await res.json()).toEqual({ status: 'error', message: 'Unauthorized' })
+  })
 })
