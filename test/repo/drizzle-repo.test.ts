@@ -19,6 +19,18 @@ beforeEach(async () => {
 
   // Dates are ET midnight, as the content engine stores them.
   await db.insert(schema.posts).values([
+    // Inserted first (lowest id) on purpose: it shares its day with
+    // published-new and its category sorts after 'articles'.
+    {
+      slug: 'published-same-day',
+      category: 'essays',
+      title: 'Same day',
+      description: null,
+      author: 'Tianwei Zhang',
+      createdAt: new Date('2025-10-23T04:00:00.000Z'),
+      isPublished: true,
+      content: 'same-day content',
+    },
     {
       slug: 'published-old',
       category: 'articles',
@@ -60,9 +72,9 @@ afterEach(async () => {
 })
 
 describe('fetchPosts', () => {
-  it('returns only published posts, newest first, without content/isPublished', async () => {
+  it('returns only published posts, newest first with id breaking same-day ties, without content/isPublished', async () => {
     const rows = await repo.fetchPosts()
-    expect(rows.map(row => row.slug)).toEqual(['published-new', 'published-old'])
+    expect(rows.map(row => row.slug)).toEqual(['published-new', 'published-same-day', 'published-old'])
     expect(rows[0]).toEqual({
       id: expect.any(Number),
       slug: 'published-new',
@@ -74,7 +86,7 @@ describe('fetchPosts', () => {
       updatedAt: new Date('2025-11-05T05:00:00.000Z'),
     })
     // updatedAt is nullable — absent means "never updated"
-    expect(rows[1]!.updatedAt).toBeNull()
+    expect(rows[2]!.updatedAt).toBeNull()
     expect(rows[0]).not.toHaveProperty('content')
     expect(rows[0]).not.toHaveProperty('isPublished')
   })
@@ -84,6 +96,7 @@ describe('fetchPosts', () => {
     expect(rows.map(row => row.slug)).toEqual([
       'unpublished-draft',
       'published-new',
+      'published-same-day',
       'published-old',
     ])
   })
@@ -114,7 +127,7 @@ describe('fetchPostBySlug', () => {
 })
 
 describe('fetchCategories', () => {
-  it('returns distinct categories of published posts only', async () => {
-    expect(await repo.fetchCategories()).toEqual(['articles'])
+  it('returns distinct categories of published posts only, alphabetical', async () => {
+    expect(await repo.fetchCategories()).toEqual(['articles', 'essays'])
   })
 })

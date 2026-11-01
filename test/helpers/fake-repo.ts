@@ -62,7 +62,7 @@ export function createFakeRepo(posts: Post[] = FIXTURE_POSTS) {
         : posts.filter(post => post.isPublished)
       return visible
         .slice()
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id)
         .map(toSummary)
     },
 
@@ -78,7 +78,7 @@ export function createFakeRepo(posts: Post[] = FIXTURE_POSTS) {
     async fetchCategories() {
       return [
         ...new Set(posts.filter(post => post.isPublished).map(post => post.category)),
-      ]
+      ].sort()
     },
   }
 
