@@ -10,6 +10,9 @@ import {
 /**
  * Posts table schema:
  * Stores metadata, body content, and publishing state for each .mdx entry.
+ *
+ * Copy of tianwei-io-content/drizzle/schema.ts, which owns the migrations;
+ * keep the two identical.
  */
 export const posts = pgTable('posts', {
   id: serial('id').primaryKey(),
@@ -26,7 +29,7 @@ export const posts = pgTable('posts', {
   updatedAt: timestamp('updated_at', { mode: 'date' }),
 
   // whether this entry should be visible to the frontend
-  isPublished: boolean('is_published').notNull(),
+  isPublished: boolean('is_published').notNull().default(false),
 
   content: text('content').notNull(),
 })
