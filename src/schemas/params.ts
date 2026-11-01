@@ -14,5 +14,3 @@ export const slugParam = z.object({
       'Slug must be lowercase alphanumeric with non-consecutive hyphens',
     ),
 })
-
-export type SlugParam = z.infer<typeof slugParam>

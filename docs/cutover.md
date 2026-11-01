@@ -1,5 +1,12 @@
 # Cutover runbook: fly.io → Cloudflare Workers
 
+> **Executed 2026-07-07** (api #5 and #13). Kept as a historical record; the
+> cutover steps are done (the `routes` block is live); do not re-run them.
+> Still open as of 2026-10-31: the WAF rate-limiting rule (section 4), the
+> secret rotation and the fly app teardown (section 5); `tianwei-io-api.fly.dev`
+> no longer resolves, which suggests but does not prove the app is gone.
+> Release checks now live in the frontend repo's `docs/release-verification.md`.
+
 Ordered checklist for moving `tio.twz.app` to the Worker. Rollback at any
 point = re-point the DNS record back to fly (the fly app stays alive until
 the final step).
@@ -24,7 +31,8 @@ the final step).
 ## 2. First deploy (workers.dev only)
 
 - [ ] Merge the API PR to `main` → deploy workflow runs
-      (or manually: `pnpm deploy`).
+      (or manually: `pnpm run deploy` — plain `pnpm deploy` is a pnpm
+      built-in, not this script).
 - [ ] Smoke against the live fly baseline:
       `pnpm smoke https://tio.twz.app https://tianwei-io-api.<account>.workers.dev`
       — all checks must pass (the script allows `updatedAt` as a known
@@ -51,5 +59,7 @@ the final step).
 
 ## 5. Decommission (after 1–2 weeks of soak)
 
-- [ ] `fly apps destroy tianwei-io-api`
-- [ ] Rotate `REVALIDATION_SECRET` and the Neon password if not already done.
+- [ ] `fly apps destroy tianwei-io-api` (the hostname no longer resolved on
+      2026-10-31; confirm in the Fly dashboard or with `fly apps list`)
+- [ ] Rotate `REVALIDATION_SECRET` and the Neon password if not already done
+      (not verifiable from the repo; owner to confirm).

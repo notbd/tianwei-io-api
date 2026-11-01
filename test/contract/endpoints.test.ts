@@ -6,7 +6,7 @@ import { bindings, createFakeRepo, createThrowingRepo } from '../helpers/fake-re
 // If any expected literal here changes, the frontend contract changes —
 // that is a breaking change, not a test to casually update.
 
-describe('gET /', () => {
+describe('/', () => {
   it('returns the greeting as plain text', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/', {}, bindings())
@@ -15,7 +15,7 @@ describe('gET /', () => {
   })
 })
 
-describe('gET /health', () => {
+describe('/health', () => {
   it('reports status and environment', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/health', {}, bindings({ NODE_ENV: 'production' }))
@@ -24,7 +24,7 @@ describe('gET /health', () => {
   })
 })
 
-describe('gET /api/posts', () => {
+describe('/api/posts', () => {
   it('returns published summaries, newest first, in the exact envelope', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/api/posts', {}, bindings())
@@ -41,8 +41,8 @@ describe('gET /api/posts', () => {
           title: 'Newer Post',
           description: 'The newer one',
           author: 'Tianwei Zhang',
-          createdAt: '2025-10-23T00:00:00.000Z',
-          updatedAt: '2025-11-05T00:00:00.000Z',
+          createdAt: '2025-10-23T04:00:00.000Z',
+          updatedAt: '2025-11-05T05:00:00.000Z',
         },
         {
           id: 1,
@@ -51,7 +51,7 @@ describe('gET /api/posts', () => {
           title: 'Older Post',
           description: null,
           author: 'Tianwei Zhang',
-          createdAt: '2024-04-15T00:00:00.000Z',
+          createdAt: '2024-04-15T04:00:00.000Z',
           updatedAt: null,
         },
       ],
@@ -69,7 +69,9 @@ describe('gET /api/posts', () => {
   })
 
   it('returns the exact 500 shape when the data layer fails', async () => {
-    const app = createApp({ repo: createThrowingRepo() })
+    const app = createApp({
+      repo: createThrowingRepo(),
+    })
     const res = await app.request('/api/posts', {}, bindings())
     expect(res.status).toBe(500)
     expect(await res.json()).toEqual({ status: 'error', message: 'Failed to fetch posts.' })
@@ -82,7 +84,7 @@ describe('gET /api/posts', () => {
   })
 })
 
-describe('gET /api/post/:slug', () => {
+describe('/api/post/:slug', () => {
   it('returns the full post in the exact envelope', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/api/post/newer-post', {}, bindings())
@@ -97,8 +99,8 @@ describe('gET /api/post/:slug', () => {
         title: 'Newer Post',
         description: 'The newer one',
         author: 'Tianwei Zhang',
-        createdAt: '2025-10-23T00:00:00.000Z',
-        updatedAt: '2025-11-05T00:00:00.000Z',
+        createdAt: '2025-10-23T04:00:00.000Z',
+        updatedAt: '2025-11-05T05:00:00.000Z',
         isPublished: true,
         content: '# Newer\n\nBody.\n',
       },
@@ -147,14 +149,16 @@ describe('gET /api/post/:slug', () => {
   })
 
   it('returns the exact 500 shape when the data layer fails', async () => {
-    const app = createApp({ repo: createThrowingRepo() })
+    const app = createApp({
+      repo: createThrowingRepo(),
+    })
     const res = await app.request('/api/post/some-post', {}, bindings())
     expect(res.status).toBe(500)
     expect(await res.json()).toEqual({ status: 'error', message: 'Failed to fetch post.' })
   })
 })
 
-describe('gET /api/categories', () => {
+describe('/api/categories', () => {
   it('returns distinct categories of published posts', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/api/categories', {}, bindings())
@@ -167,14 +171,16 @@ describe('gET /api/categories', () => {
   })
 
   it('returns the exact 500 shape when the data layer fails', async () => {
-    const app = createApp({ repo: createThrowingRepo() })
+    const app = createApp({
+      repo: createThrowingRepo(),
+    })
     const res = await app.request('/api/categories', {}, bindings())
     expect(res.status).toBe(500)
     expect(await res.json()).toEqual({ status: 'error', message: 'Failed to fetch categories.' })
   })
 })
 
-describe('gET /api/__dev/posts', () => {
+describe('/api/__dev/posts', () => {
   it('includes unpublished posts in development', async () => {
     const { repo, calls } = createFakeRepo()
     const app = createApp({ repo })
@@ -184,7 +190,9 @@ describe('gET /api/__dev/posts', () => {
     const body = await res.json() as { count: number, data: { slug: string }[] }
     expect(body.count).toBe(3)
     expect(body.data.map(row => row.slug)).toContain('draft-post')
-    expect(calls.fetchPosts).toEqual([{ ignorePublishStatus: true }])
+    expect(calls.fetchPosts).toEqual([
+      { ignorePublishStatus: true },
+    ])
   })
 
   it('answers with the standard 404 shape in production', async () => {
@@ -219,7 +227,7 @@ describe('unmatched routes', () => {
   })
 })
 
-describe('cORS', () => {
+describe('cors', () => {
   it('is absent when ALLOWED_ORIGINS is empty', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/api/posts', {
@@ -251,5 +259,7 @@ describe('environment validation', () => {
     const res = await app.request('/api/posts', {}, { NODE_ENV: 'production', DATABASE_URL: 'mysql://nope' })
     expect(res.status).toBe(500)
     expect(await res.json()).toEqual({ status: 'error', message: 'Internal Server Error' })
+    // thrown before the /api/* middleware could set it; onError must add it
+    expect(res.headers.get('cache-control')).toBe('no-store')
   })
 })

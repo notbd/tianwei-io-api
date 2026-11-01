@@ -2,7 +2,7 @@
 <samp>
 <h1>tianwei-io-api</h1>
 
-[![CI](https://github.com/notbd/tianwei-io-api/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/notbd/tianwei-io-api/actions/workflows/ci.yml)
+[![CI](https://github.com/notbd/tianwei-io-api/actions/workflows/ci.yml/badge.svg)](https://github.com/notbd/tianwei-io-api/actions/workflows/ci.yml)
 [![Deploy](https://github.com/notbd/tianwei-io-api/actions/workflows/deploy.yml/badge.svg?branch=main)](https://github.com/notbd/tianwei-io-api/actions/workflows/deploy.yml)
 
 The API layer of my personal website [tianwei.io](https://tianwei.io), serving at `tio.twz.app`.
@@ -24,9 +24,9 @@ The API layer of my personal website [tianwei.io](https://tianwei.io), serving a
 
 <h2>Design Notes</h2>
 
-- **Stateless by construction**: every request is one HTTP query to Neon — no pools, no sockets, no shutdown hooks. The Worker runs with smart placement, so it executes near the database rather than near the caller.
+- **Stateless by construction**: every request is one HTTP query to Neon — no pools, no sockets, no shutdown hooks. `placement.mode` is `smart`; in practice the main callers are Vercel's ISR functions (default region `iad1`, us-east-1, next to Neon) and Vercel builds, so the Worker runs where the request arrives.
 - **No API-level caching** (`Cache-Control: no-store`): the frontend's Next.js data cache with on-demand revalidation is the single cache layer; caching here too would serve stale data after a content sync.
-- **Rate limiting** is delegated to a Cloudflare zone rule instead of application code — the old in-memory limiter is meaningless across Worker isolates.
+- **Rate limiting** belongs in a Cloudflare zone rule (configure it in the Cloudflare dashboard; it is not tracked in this repo) instead of application code — the old in-memory limiter is meaningless across Worker isolates.
 - **Repository boundary**: handlers depend on a `PostsRepo` interface; production wires Drizzle over neon-http, tests inject fakes (contract tests) or PGlite (SQL tests).
 
 <h2>Endpoints</h2>
@@ -46,7 +46,7 @@ All API endpoints return JSON responses with a consistent structure:
 
 <h2>Local Run</h2>
 
-Prerequisites: **Node.js ≥ 22** and **pnpm 10**.
+Prerequisites: **Node.js 26** (see `.nvmrc`) and **pnpm 10**.
 
 ```shell
 git clone git@github.com:notbd/tianwei-io-api.git
@@ -68,7 +68,7 @@ pnpm lint
 
 The contract suite pins the exact wire format the frontend depends on — endpoint envelopes, error messages, slug validation, CORS and cache headers. The repo suite runs the real queries against an in-memory Postgres.
 
-For deploy verification, `pnpm smoke <baseline-url> <candidate-url>` diffs every endpoint between two live deployments (byte-identical, modulo explicitly allowed additive fields). The fly.io → Workers migration itself followed [`docs/cutover.md`](./docs/cutover.md).
+For deploy verification, `pnpm smoke <baseline-url> <candidate-url>` compares every endpoint between two live deployments: status codes plus bodies as canonical JSON (key order ignored, the `/health` body skipped, explicitly allowed additive fields dropped). The fly.io → Workers migration itself followed [`docs/cutover.md`](./docs/cutover.md).
 
 > **Contract evolution rule**: this Worker selects every column its schema declares, so a new column must land in the database (merge + deploy tianwei-io-content) **before** the Worker's schema references it — additive changes always flow content → api → frontend. (Example: `updated_at`, added at the 2026-07 cutover.)
 
@@ -77,6 +77,7 @@ For deploy verification, `pnpm smoke <baseline-url> <candidate-url>` diffs every
 - `NODE_ENV`, `ALLOWED_ORIGINS`: plain vars in `wrangler.jsonc` (production) / `.dev.vars` (local)
 - `DATABASE_URL`: Worker secret — `pnpm wrangler secret put DATABASE_URL`
 - `PREVIEW_SECRET` (optional): Worker secret enabling the draft-preview endpoint
+- `worker-configuration.d.ts`: workerd runtime types that `src/` is type-checked against; regenerate with `pnpm cf-typegen` after bumping `wrangler` or `compatibility_date`
 - CI deploys on push to `main` via `cloudflare/wrangler-action` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` repo secrets)
 
 Design records live in [`docs/adr/`](./docs/adr/).

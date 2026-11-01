@@ -1,4 +1,5 @@
 import type { Context } from 'hono'
+import { apiRes } from '@/lib/responses'
 
 interface ValidationResult {
   success: boolean
@@ -27,11 +28,5 @@ export function validationErrorHook(
   const path = firstIssue?.path.join('.') || 'unknown'
   const message = firstIssue?.message || 'Invalid input'
 
-  return c.json(
-    {
-      status: 'error',
-      message: `Validation failed: ${path} - ${message}`,
-    },
-    400,
-  )
+  return apiRes.err(c, `Validation failed: ${path} - ${message}`, 400)
 }

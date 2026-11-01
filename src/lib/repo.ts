@@ -1,6 +1,6 @@
 import type { Database } from '@/db/connector'
 import type { Post, PostSummary } from '@/schemas'
-import { desc, eq } from 'drizzle-orm'
+import { asc, desc, eq } from 'drizzle-orm'
 import { posts } from '@/db/schema'
 
 export interface FetchPostsConfig {
@@ -17,11 +17,11 @@ export interface FetchPostBySlugConfig {
  * neon-http, tests inject fakes or a PGlite-backed instance.
  */
 export interface PostsRepo {
-  /** List posts (summary shape), newest first. Published only by default. */
+  /** List posts (summary shape), newest first (createdAt, then id). Published only by default. */
   fetchPosts: (config?: FetchPostsConfig) => Promise<PostSummary[]>
   /** Fetch one post with full content; null if absent or unpublished. */
   fetchPostBySlug: (slug: string, config?: FetchPostBySlugConfig) => Promise<Post | null>
-  /** Distinct categories across published posts. */
+  /** Distinct categories across published posts, alphabetical. */
   fetchCategories: () => Promise<string[]>
 }
 
@@ -49,7 +49,9 @@ export function createDrizzleRepo(db: Database): PostsRepo {
         })
         .from(posts)
         .where(whereClause)
-        .orderBy(desc(posts.createdAt))
+        // Dates carry day precision, so same-day posts tie-break on id
+        // (the later import first) to keep the order stable across rebuilds.
+        .orderBy(desc(posts.createdAt), desc(posts.id))
     },
 
     async fetchPostBySlug(slug, config = {}) {
@@ -75,6 +77,7 @@ export function createDrizzleRepo(db: Database): PostsRepo {
         .selectDistinct({ category: posts.category })
         .from(posts)
         .where(eq(posts.isPublished, true))
+        .orderBy(asc(posts.category))
 
       return result.map(row => row.category)
     },

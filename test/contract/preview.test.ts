@@ -8,7 +8,7 @@ function previewBindings(overrides: Record<string, string> = {}) {
   return bindings({ PREVIEW_SECRET: SECRET, ...overrides })
 }
 
-describe('gET /api/__preview/post/:slug', () => {
+describe('/api/__preview/post/:slug', () => {
   it('behaves as a standard 404 when PREVIEW_SECRET is not configured', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/api/__preview/post/draft-post', {
@@ -41,6 +41,20 @@ describe('gET /api/__preview/post/:slug', () => {
     expect(res.status).toBe(401)
   })
 
+  it.each([
+    ['one character longer', `${SECRET}x`],
+    [
+      'one character shorter',
+      SECRET.slice(0, -1),
+    ],
+  ])('401s with a token %s than the secret', async (_, token) => {
+    const app = createApp({ repo: createFakeRepo().repo })
+    const res = await app.request('/api/__preview/post/draft-post', {
+      headers: { Authorization: `Bearer ${token}` },
+    }, previewBindings())
+    expect(res.status).toBe(401)
+  })
+
   it('returns unpublished posts with a valid token', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/api/__preview/post/draft-post', {
@@ -63,11 +77,20 @@ describe('gET /api/__preview/post/:slug', () => {
     expect(await res.json()).toEqual({ status: 'error', message: 'Post not found.' })
   })
 
-  it('validates the slug shape before auth-independent work', async () => {
+  it('validates the slug shape once the token is accepted', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/api/__preview/post/BAD_SLUG', {
       headers: { Authorization: `Bearer ${SECRET}` },
     }, previewBindings())
     expect(res.status).toBe(400)
+  })
+
+  it('401s (not 400) for an invalid slug with a wrong token — auth runs first', async () => {
+    const app = createApp({ repo: createFakeRepo().repo })
+    const res = await app.request('/api/__preview/post/BAD_SLUG', {
+      headers: { Authorization: 'Bearer wrong-token-wrong-token' },
+    }, previewBindings())
+    expect(res.status).toBe(401)
+    expect(await res.json()).toEqual({ status: 'error', message: 'Unauthorized' })
   })
 })

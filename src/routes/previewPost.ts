@@ -15,12 +15,19 @@ import { slugParam } from '@/schemas'
  */
 const previewPostRoute = new Hono<AppEnv>()
 
-function safeEqual(a: string, b: string): boolean {
+/**
+ * Constant-time equality. Both strings are hashed first so the byte
+ * comparison always runs over two equal-length digests — returning early
+ * on a length mismatch would leak the secret's length.
+ */
+async function safeEqual(a: string, b: string): Promise<boolean> {
   const encoder = new TextEncoder()
-  const bytesA = encoder.encode(a)
-  const bytesB = encoder.encode(b)
-  if (bytesA.length !== bytesB.length)
-    return false
+  const [digestA, digestB] = await Promise.all([
+    crypto.subtle.digest('SHA-256', encoder.encode(a)),
+    crypto.subtle.digest('SHA-256', encoder.encode(b)),
+  ])
+  const bytesA = new Uint8Array(digestA)
+  const bytesB = new Uint8Array(digestB)
   let diff = 0
   for (let i = 0; i < bytesA.length; i++)
     diff |= bytesA[i]! ^ bytesB[i]!
@@ -31,22 +38,22 @@ previewPostRoute.get(
   '/post/:slug',
   // The disabled state must be indistinguishable from a nonexistent route,
   // so the 404 guard runs BEFORE slug validation (which would leak a 400).
+  // Auth lives in the same guard: an unauthorized request does no other work.
   async (c, next) => {
-    if (c.get('env').PREVIEW_SECRET === undefined)
+    const secret = c.get('env').PREVIEW_SECRET
+    if (secret === undefined)
       return apiRes.err(c, 'Not Found', 404)
-    await next()
-  },
-  zValidator('param', slugParam, validationErrorHook),
-  async (c) => {
-    // guarded above; re-read for the comparison
-    const secret = c.get('env').PREVIEW_SECRET as string
 
     // Whole-header comparison implies a case-sensitive "Bearer" scheme
     // (stricter than RFC 7235) — fine for the single known Next.js client.
     const authHeader = c.req.header('authorization') ?? ''
-    if (!safeEqual(authHeader, `Bearer ${secret}`))
+    if (!(await safeEqual(authHeader, `Bearer ${secret}`)))
       return apiRes.err(c, 'Unauthorized', 401)
 
+    await next()
+  },
+  zValidator('param', slugParam, validationErrorHook),
+  async (c) => {
     const { slug } = c.req.valid('param')
 
     try {

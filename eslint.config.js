@@ -6,15 +6,17 @@ export default antfu(
       indent: 2,
       quotes: 'single',
     },
-    ignores: [
-      'dist/**',
-      'build/**',
-    ],
+    ignores: ['worker-configuration.d.ts'],
   },
 
   {
     rules: {
-      'no-console': ['error', { allow: ['warn', 'error', 'info', 'dir'] }],
+      'no-console': [
+        'error',
+        {
+          allow: ['warn', 'error', 'info', 'dir'],
+        },
+      ],
     },
   },
 )
