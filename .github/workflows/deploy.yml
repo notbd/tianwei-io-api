@@ -62,12 +62,14 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       # The deploy step succeeding only means the upload worked — verify the
-      # Worker actually serves, and can reach the database, before calling the
-      # deploy green. Retries absorb propagation of the new version.
+      # Worker actually serves and can read every column the API selects
+      # (/api/posts reads updated_at, so a missing content migration fails
+      # here). Retries only absorb transient network errors: a 200 from the
+      # previous version would pass too, so this is not a version check.
       - name: Verify deployment
         run: |
           curl -sf --retry 6 --retry-delay 5 --retry-all-errors --max-time 15 \
             https://tio.twz.app/health | grep -q '"status":"ok"'
           curl -sf --retry 6 --retry-delay 5 --retry-all-errors --max-time 15 \
-            https://tio.twz.app/api/categories | grep -q '"status":"success"'
+            https://tio.twz.app/api/posts | grep -q '"status":"success"'
           echo "health and database checks passed"
