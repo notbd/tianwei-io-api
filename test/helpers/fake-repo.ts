@@ -1,6 +1,8 @@
 import type { FetchPostsConfig, PostsRepo } from '@/lib/repo'
 import type { Post } from '@/schemas'
 
+// Dates are ET midnight, as the content engine stores them
+// (T05:00Z while EST is in effect, T04:00Z under EDT).
 export const FIXTURE_POSTS: Post[] = [
   {
     id: 2,
@@ -9,8 +11,8 @@ export const FIXTURE_POSTS: Post[] = [
     title: 'Newer Post',
     description: 'The newer one',
     author: 'Tianwei Zhang',
-    createdAt: new Date('2025-10-23T00:00:00.000Z'),
-    updatedAt: new Date('2025-11-05T00:00:00.000Z'),
+    createdAt: new Date('2025-10-23T04:00:00.000Z'),
+    updatedAt: new Date('2025-11-05T05:00:00.000Z'),
     isPublished: true,
     content: '# Newer\n\nBody.\n',
   },
@@ -21,7 +23,7 @@ export const FIXTURE_POSTS: Post[] = [
     title: 'Older Post',
     description: null,
     author: 'Tianwei Zhang',
-    createdAt: new Date('2024-04-15T00:00:00.000Z'),
+    createdAt: new Date('2024-04-15T04:00:00.000Z'),
     updatedAt: null,
     isPublished: true,
     content: '# Older\n\nBody.\n',
@@ -33,7 +35,7 @@ export const FIXTURE_POSTS: Post[] = [
     title: 'Draft Post',
     description: 'Unpublished',
     author: 'Tianwei Zhang',
-    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    createdAt: new Date('2026-01-01T05:00:00.000Z'),
     updatedAt: null,
     isPublished: false,
     content: 'Draft body.\n',

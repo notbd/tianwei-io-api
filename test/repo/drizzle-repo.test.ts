@@ -17,6 +17,7 @@ beforeEach(async () => {
   const { apply } = await pushSchema(schema, db as never)
   await apply()
 
+  // Dates are ET midnight, as the content engine stores them.
   await db.insert(schema.posts).values([
     {
       slug: 'published-old',
@@ -24,7 +25,7 @@ beforeEach(async () => {
       title: 'Old',
       description: null,
       author: 'Tianwei Zhang',
-      createdAt: new Date('2024-04-15T00:00:00.000Z'),
+      createdAt: new Date('2024-04-15T04:00:00.000Z'),
       isPublished: true,
       content: 'old content',
     },
@@ -34,8 +35,8 @@ beforeEach(async () => {
       title: 'New',
       description: 'newest',
       author: 'Tianwei Zhang',
-      createdAt: new Date('2025-10-23T00:00:00.000Z'),
-      updatedAt: new Date('2025-11-05T00:00:00.000Z'),
+      createdAt: new Date('2025-10-23T04:00:00.000Z'),
+      updatedAt: new Date('2025-11-05T05:00:00.000Z'),
       isPublished: true,
       content: 'new content',
     },
@@ -45,7 +46,7 @@ beforeEach(async () => {
       title: 'Draft',
       description: null,
       author: 'Tianwei Zhang',
-      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      createdAt: new Date('2026-01-01T05:00:00.000Z'),
       isPublished: false,
       content: 'draft content',
     },
@@ -69,8 +70,8 @@ describe('fetchPosts', () => {
       title: 'New',
       description: 'newest',
       author: 'Tianwei Zhang',
-      createdAt: new Date('2025-10-23T00:00:00.000Z'),
-      updatedAt: new Date('2025-11-05T00:00:00.000Z'),
+      createdAt: new Date('2025-10-23T04:00:00.000Z'),
+      updatedAt: new Date('2025-11-05T05:00:00.000Z'),
     })
     // updatedAt is nullable — absent means "never updated"
     expect(rows[1]!.updatedAt).toBeNull()
@@ -98,7 +99,7 @@ describe('fetchPostBySlug', () => {
       isPublished: true,
       content: 'old content',
     })
-    expect(post!.createdAt).toEqual(new Date('2024-04-15T00:00:00.000Z'))
+    expect(post!.createdAt).toEqual(new Date('2024-04-15T04:00:00.000Z'))
   })
 
   it('returns null for a missing slug', async () => {
