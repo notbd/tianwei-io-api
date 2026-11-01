@@ -41,6 +41,20 @@ describe('/api/__preview/post/:slug', () => {
     expect(res.status).toBe(401)
   })
 
+  it.each([
+    ['one character longer', `${SECRET}x`],
+    [
+      'one character shorter',
+      SECRET.slice(0, -1),
+    ],
+  ])('401s with a token %s than the secret', async (_, token) => {
+    const app = createApp({ repo: createFakeRepo().repo })
+    const res = await app.request('/api/__preview/post/draft-post', {
+      headers: { Authorization: `Bearer ${token}` },
+    }, previewBindings())
+    expect(res.status).toBe(401)
+  })
+
   it('returns unpublished posts with a valid token', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/api/__preview/post/draft-post', {
@@ -63,7 +77,7 @@ describe('/api/__preview/post/:slug', () => {
     expect(await res.json()).toEqual({ status: 'error', message: 'Post not found.' })
   })
 
-  it('validates the slug shape before auth-independent work', async () => {
+  it('validates the slug shape once the token is accepted', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/api/__preview/post/BAD_SLUG', {
       headers: { Authorization: `Bearer ${SECRET}` },

@@ -21,10 +21,11 @@ beforeAll(async () => {
   // Dates are ET midnight, as the content engine stores them.
   await db.insert(schema.posts).values([
     // Inserted first (lowest id) on purpose: it shares its day with
-    // published-new and its category sorts after 'articles'.
+    // published-new, and 'misc' sorts after 'articles' but comes back first
+    // from PGlite's HashAggregate, so the categories test needs the ORDER BY.
     {
       slug: 'published-same-day',
-      category: 'essays',
+      category: 'misc',
       title: 'Same day',
       description: null,
       author: 'Tianwei Zhang',
@@ -129,6 +130,6 @@ describe('fetchPostBySlug', () => {
 
 describe('fetchCategories', () => {
   it('returns distinct categories of published posts only, alphabetical', async () => {
-    expect(await repo.fetchCategories()).toEqual(['articles', 'essays'])
+    expect(await repo.fetchCategories()).toEqual(['articles', 'misc'])
   })
 })
