@@ -1,8 +1,5 @@
 // Params
-export {
-  slugParam,
-  type SlugParam,
-} from './params'
+export { slugParam } from './params'
 
 // Data schemas
 export {
@@ -12,12 +9,9 @@ export {
   postSummarySchema,
 } from './posts'
 
-// Response wrappers
-export {
-  errorResponse,
-  type ErrorResponse,
-  successListResponse,
-  type SuccessListResponse,
-  successResponse,
-  type SuccessResponse,
+// Response envelopes
+export type {
+  ErrorResponse,
+  SuccessListResponse,
+  SuccessResponse,
 } from './responses'
