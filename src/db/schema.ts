@@ -12,7 +12,7 @@ import {
  * Stores metadata, body content, and publishing state for each .mdx entry.
  *
  * Copy of tianwei-io-content/drizzle/schema.ts, which owns the migrations;
- * keep the two identical.
+ * keep the two identical apart from this comment.
  */
 export const posts = pgTable('posts', {
   id: serial('id').primaryKey(),

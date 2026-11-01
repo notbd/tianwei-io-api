@@ -24,9 +24,9 @@ The API layer of my personal website [tianwei.io](https://tianwei.io), serving a
 
 <h2>Design Notes</h2>
 
-- **Stateless by construction**: every request is one HTTP query to Neon — no pools, no sockets, no shutdown hooks. `placement.mode` is `smart`; in practice the only callers (Vercel builds and ISR, us-east-1) already sit next to Neon, so the Worker runs where the request arrives.
+- **Stateless by construction**: every request is one HTTP query to Neon — no pools, no sockets, no shutdown hooks. `placement.mode` is `smart`; in practice the only callers (Vercel builds and ISR, which run in Vercel's default `iad1` region, us-east-1) already sit next to Neon, so the Worker runs where the request arrives.
 - **No API-level caching** (`Cache-Control: no-store`): the frontend's Next.js data cache with on-demand revalidation is the single cache layer; caching here too would serve stale data after a content sync.
-- **Rate limiting** is delegated to a Cloudflare zone rule (configured in the Cloudflare dashboard, not in this repo) instead of application code — the old in-memory limiter is meaningless across Worker isolates.
+- **Rate limiting** belongs in a Cloudflare zone rule (configure it in the Cloudflare dashboard; it is not tracked in this repo) instead of application code — the old in-memory limiter is meaningless across Worker isolates.
 - **Repository boundary**: handlers depend on a `PostsRepo` interface; production wires Drizzle over neon-http, tests inject fakes (contract tests) or PGlite (SQL tests).
 
 <h2>Endpoints</h2>

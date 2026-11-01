@@ -4,8 +4,8 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-06-01",
 
-  // Run near the database (Neon us-east-1) instead of near the caller:
-  // every request is one Worker->DB round trip, so DB proximity wins.
+  // Smart placement may move the Worker next to Neon (us-east-1); in practice
+  // the callers already sit there, so it runs where requests arrive (README).
   "placement": { "mode": "smart" },
 
   "observability": {

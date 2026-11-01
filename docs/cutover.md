@@ -1,8 +1,10 @@
 # Cutover runbook: fly.io → Cloudflare Workers
 
 > **Executed 2026-07-07** (api #5 and #13). Kept as a historical record; the
-> steps below are no longer actionable — the `routes` block is live, the fly
-> app is gone (`tianwei-io-api.fly.dev` no longer resolves) — do not re-run.
+> cutover steps are done (the `routes` block is live); do not re-run them.
+> Still open as of 2026-10-31: the WAF rate-limiting rule (section 4), the
+> secret rotation and the fly app teardown (section 5); `tianwei-io-api.fly.dev`
+> no longer resolves, which suggests but does not prove the app is gone.
 > Release checks now live in the frontend repo's `docs/release-verification.md`.
 
 Ordered checklist for moving `tio.twz.app` to the Worker. Rollback at any
@@ -57,6 +59,7 @@ the final step).
 
 ## 5. Decommission (after 1–2 weeks of soak)
 
-- [x] `fly apps destroy tianwei-io-api` (the hostname no longer resolved on 2026-10-31)
+- [ ] `fly apps destroy tianwei-io-api` (the hostname no longer resolved on
+      2026-10-31; confirm in the Fly dashboard or with `fly apps list`)
 - [ ] Rotate `REVALIDATION_SECRET` and the Neon password if not already done
       (not verifiable from the repo; owner to confirm).
