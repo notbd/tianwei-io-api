@@ -46,7 +46,7 @@ All API endpoints return JSON responses with a consistent structure:
 
 <h2>Local Run</h2>
 
-Prerequisites: **Node.js ≥ 22** and **pnpm 10**.
+Prerequisites: **Node.js 26** (see `.nvmrc`) and **pnpm 10**.
 
 ```shell
 git clone git@github.com:notbd/tianwei-io-api.git
