@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 /**
- * Smoke test: byte-diff every endpoint between two deployments, e.g.
- * production against a local `wrangler dev` before a release.
+ * Smoke test: compare every endpoint between two deployments, e.g.
+ * production against a local `wrangler dev` before a release. Both sides
+ * must run with NODE_ENV=production (set it in .dev.vars for the local
+ * candidate): the /api/__dev/posts check expects the standard 404.
  *
  * Usage:
  *   node scripts/smoke.mjs <baseline-url> <candidate-url>
  *   node scripts/smoke.mjs https://tio.twz.app http://127.0.0.1:8787
  *
- * Compares status codes and exact response bodies (the wire contract the
- * frontend parses). Headers are informational only — platforms add their own.
+ * Compares status codes and response bodies as canonical JSON, key order
+ * ignored (the wire contract the frontend parses). Headers are informational only — platforms add their own.
  */
 
 import process from 'node:process'
@@ -66,7 +68,7 @@ function bodiesMatch(baselineBody, candidateBody) {
 
 const CHECKS = [
   { path: '/', expectStatus: 200 },
-  { path: '/health', expectStatus: 200, ignoreBody: true }, // prod says production, wrangler dev says development
+  { path: '/health', expectStatus: 200, ignoreBody: true }, // the env field is informational, not part of the contract
   { path: '/api/posts', expectStatus: 200 },
   { path: '/api/categories', expectStatus: 200 },
   { path: '/api/post/__FIRST_SLUG__', expectStatus: 200 },

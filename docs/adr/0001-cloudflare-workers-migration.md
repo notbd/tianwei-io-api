@@ -53,5 +53,6 @@ Sub-decisions:
 
 Note (2026-10-31): live responses carry `cf-placement: local-<colo>`, so Smart
 Placement is not relocating the Worker (it needs sustained traffic from several
-locations). The outcome is the same because the only callers, Vercel builds and
-ISR in us-east-1, already sit next to Neon; see the README's Design Notes.
+locations). The outcome is the same because the main caller, Vercel's ISR
+functions in the default `iad1` region (us-east-1), already sits next to Neon
+(Vercel does not document where builds run); see the README's Design Notes.

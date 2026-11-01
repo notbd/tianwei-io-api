@@ -6,11 +6,7 @@ export default antfu(
       indent: 2,
       quotes: 'single',
     },
-    ignores: [
-      'dist/**',
-      'build/**',
-      'worker-configuration.d.ts',
-    ],
+    ignores: ['worker-configuration.d.ts'],
   },
 
   {
