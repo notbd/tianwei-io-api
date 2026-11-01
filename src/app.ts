@@ -2,16 +2,14 @@ import type { AppEnv } from '@/context'
 import type { PostsRepo } from '@/lib/repo'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { HTTPException } from 'hono/http-exception'
 import { logger } from 'hono/logger'
 import { getDB } from '@/db/connector'
 import { parseEnv } from '@/env'
 import { createDrizzleRepo } from '@/lib/repo'
 import { apiRes } from '@/lib/responses'
-import categoriesRoute from '@/routes/categories'
-import devPostsRoute from '@/routes/devPosts'
-import postRoute from '@/routes/post'
-import postsRoute from '@/routes/posts'
-import previewPostRoute from '@/routes/previewPost'
+import draftsRoutes from '@/routes/drafts'
+import postsRoutes from '@/routes/posts'
 
 export interface CreateAppOptions {
   /** Override the data layer (tests inject fakes here). */
@@ -21,8 +19,8 @@ export interface CreateAppOptions {
 /**
  * Build the Worker's Hono app.
  *
- * Note on shape: on Workers there is no boot phase — configuration arrives
- * per request via `c.env` — so everything the Node.js version decided at
+ * Note on shape: on Workers there is no boot phase (configuration arrives
+ * per request via `c.env`), so everything the Node.js version decided at
  * startup (env validation, CORS on/off, dev-only logging and routes) is
  * decided per request here, memoized where it matters.
  */
@@ -63,7 +61,7 @@ export function createApp(options: CreateAppOptions = {}) {
 
   // The ONLY cache layer for content is the Next.js frontend (data cache
   // with on-demand revalidation). Any edge/API caching here would serve
-  // stale data after a content sync — forbid it explicitly.
+  // stale data after a content sync; forbid it explicitly.
   app.use('/api/*', async (c, next) => {
     await next()
     c.header('Cache-Control', 'no-store')
@@ -82,28 +80,22 @@ export function createApp(options: CreateAppOptions = {}) {
     return c.json({ status: 'ok', env: c.get('env').NODE_ENV })
   })
 
-  // Public API routes
-  app.route('/api', postsRoute)
-  app.route('/api', categoriesRoute)
-  app.route('/api', postRoute)
+  app.route('/api', postsRoutes)
+  app.route('/api', draftsRoutes)
 
-  // Development-only route (includes unpublished posts);
-  // responds with the standard 404 shape in production.
-  app.route('/api/__dev', devPostsRoute)
-
-  // Secret-protected draft preview (enabled only when PREVIEW_SECRET is set)
-  app.route('/api/__preview', previewPostRoute)
-
-  // 404 handler
   app.notFound(c => apiRes.err(c, 'Not Found', 404))
 
-  // Uniform 500 shape for anything unhandled (e.g. invalid env config).
-  // Errors thrown in middleware skip the /api/* no-store middleware's
-  // post-next() header, so set it here too — no 500 may ever be cached.
+  // Every error lands here: a failed read arrives as an HTTPException that
+  // carries its endpoint's public message (failWith), anything else (e.g.
+  // invalid env config) gets the generic one. Errors thrown in middleware
+  // skip the /api/* no-store middleware's post-next() header, so set it
+  // here too: no 500 may ever be cached.
   app.onError((err, c) => {
-    console.error('Unhandled error:', err)
+    console.error(err.message, err.cause ?? err)
     c.header('Cache-Control', 'no-store')
-    return apiRes.err(c, 'Internal Server Error', 500)
+    return err instanceof HTTPException
+      ? apiRes.err(c, err.message, err.status)
+      : apiRes.err(c, 'Internal Server Error', 500)
   })
 
   return app

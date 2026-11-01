@@ -87,7 +87,7 @@ describe('fetchPosts', () => {
       createdAt: new Date('2025-10-23T04:00:00.000Z'),
       updatedAt: new Date('2025-11-05T05:00:00.000Z'),
     })
-    // updatedAt is nullable — absent means "never updated"
+    // updatedAt is nullable: absent means "never updated"
     expect(rows[2]!.updatedAt).toBeNull()
     expect(rows[0]).not.toHaveProperty('content')
     expect(rows[0]).not.toHaveProperty('isPublished')

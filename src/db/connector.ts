@@ -8,7 +8,7 @@ import * as schema from './schema'
 // Database Access (Cloudflare Workers)
 // ---------------------------------------------------------------------------
 // Uses Neon's HTTP driver: each query is a single stateless fetch to Neon's
-// proxy — no TCP sockets, no connection pool, nothing to clean up on
+// proxy: no TCP sockets, no connection pool, nothing to clean up on
 // shutdown. Ideal for this API's one-query-per-request, read-only profile.
 // ---------------------------------------------------------------------------
 

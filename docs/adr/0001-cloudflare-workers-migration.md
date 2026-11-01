@@ -24,15 +24,15 @@ Sub-decisions:
   model fits perfectly; no pool, no TCP, no cleanup. Hyperdrive was
   rejected: it earns its complexity only for multi-query/transactional
   workloads. Smart placement runs the Worker near Neon instead of near the
-  caller — with a single round trip, DB proximity wins.
+  caller: with a single round trip, DB proximity wins.
 - **Rate limiting: platform, not application.** A per-isolate in-memory
   Map is meaningless on Workers (one counter per isolate per colo). One
   Cloudflare zone rate-limiting rule replaces all of it with zero code.
 - **`Cache-Control: no-store` on `/api/*`.** The frontend's Next.js data
-  cache (revalidate:false + on-demand invalidation + warming) is the single
+  cache (revalidate: false + on-demand invalidation) is the single
   cache layer in the system. Any edge/API cache here would serve stale
-  content after a sync — see the frontend repo's ADR on the single cache
-  layer.
+  content after a sync (see the frontend repo's ADR on the single cache
+  layer).
 - **`PostsRepo` interface between handlers and Drizzle.** Contract tests
   inject fakes to pin exact JSON shapes; SQL behavior is tested separately
   against PGlite. This is what keeps "byte-identical contract" checkable.
@@ -43,7 +43,7 @@ Sub-decisions:
 ## Consequences
 
 - Cold starts drop from seconds (machine wake) to milliseconds (isolate).
-- No Docker, no pool tuning, no graceful-shutdown code — deleted, not ported.
+- No Docker, no pool tuning, no graceful-shutdown code: deleted, not ported.
 - Environment misconfiguration now surfaces as per-request 500s instead of
   a failed boot; the deploy pipeline's smoke check covers this.
 - Local dev needs a Neon dev branch (the HTTP driver cannot reach a local
@@ -55,4 +55,4 @@ Note (2026-10-31): live responses carry `cf-placement: local-<colo>`, so Smart
 Placement is not relocating the Worker (it needs sustained traffic from several
 locations). The outcome is the same because the main caller, Vercel's ISR
 functions in the default `iad1` region (us-east-1), already sits next to Neon
-(Vercel does not document where builds run); see the README's Design Notes.
+(Vercel does not document where builds run); see the README's How It Works.

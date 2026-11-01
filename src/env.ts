@@ -28,11 +28,18 @@ const EnvSchema = z.object({
     ),
 
   // Bearer token for the draft-preview endpoint (/api/__preview/*).
-  // When unset, the endpoint answers with the standard 404 shape.
+  // When unset, the endpoint answers with the standard 404 shape. An
+  // invalid value (empty, too short) only disables preview: a secret
+  // changed with `wrangler secret put` takes effect without a deploy, and
+  // an optional feature must not take the public API down with it.
   PREVIEW_SECRET: z
     .string()
-    .min(16, 'PREVIEW_SECRET must be at least 16 characters')
-    .optional(),
+    .min(16)
+    .optional()
+    .catch(() => {
+      console.error('PREVIEW_SECRET is shorter than 16 characters: draft preview disabled')
+      return undefined
+    }),
 
   // Comma-separated list of allowed CORS origins.
   // If empty or omitted, CORS middleware is not applied.
@@ -48,18 +55,13 @@ const EnvSchema = z.object({
 
 export type Env = z.infer<typeof EnvSchema>
 
-/** Raw bindings shape the Worker receives (see wrangler.jsonc / .dev.vars). */
-export interface WorkerBindings {
-  NODE_ENV?: string
-  DATABASE_URL?: string
-  PREVIEW_SECRET?: string
-  ALLOWED_ORIGINS?: string
-}
+/** Raw bindings the Worker receives (wrangler.jsonc vars, secrets, .dev.vars): unvalidated strings. */
+export type WorkerBindings = Partial<Record<keyof Env, string>>
 
 const parsedCache = new WeakMap<object, Env>()
 
 /**
- * Validate bindings into a typed Env. Throws on invalid configuration —
+ * Validate bindings into a typed Env. Throws on invalid configuration,
  * surfaced as a 500 by the app-level error handler.
  */
 export function parseEnv(bindings: WorkerBindings): Env {

@@ -10,7 +10,7 @@
  *   node scripts/smoke.mjs https://tio.twz.app http://127.0.0.1:8787
  *
  * Compares status codes and response bodies as canonical JSON, key order
- * ignored (the wire contract the frontend parses). Headers are informational only — platforms add their own.
+ * ignored (the wire contract the frontend parses). Headers are informational only: platforms add their own.
  */
 
 import process from 'node:process'
@@ -89,7 +89,7 @@ async function fetchBody(base, path) {
 async function firstSlug() {
   const res = await fetch(new URL('/api/posts', baselineBase))
   if (!res.ok)
-    throw new Error(`Baseline /api/posts responded ${res.status} — cannot resolve a post slug`)
+    throw new Error(`Baseline /api/posts responded ${res.status}: cannot resolve a post slug`)
   const json = await res.json()
   const slug = json?.data?.[0]?.slug
   if (!slug)
@@ -134,4 +134,4 @@ if (failures > 0) {
   console.error(`\n${failures} check(s) failed`)
   process.exit(1)
 }
-console.info('\nAll checks passed — contract matches (modulo allowed additive fields).')
+console.info('\nAll checks passed: contract matches (modulo allowed additive fields).')

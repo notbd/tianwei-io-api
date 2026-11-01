@@ -3,7 +3,7 @@ import { createApp } from '@/app'
 import { bindings, createFakeRepo, createThrowingRepo } from '../helpers/fake-repo'
 
 // These tests pin the EXACT wire contract the frontend depends on.
-// If any expected literal here changes, the frontend contract changes —
+// If any expected literal here changes, the frontend contract changes;
 // that is a breaking change, not a test to casually update.
 
 describe('/', () => {
@@ -75,6 +75,7 @@ describe('/api/posts', () => {
     const res = await app.request('/api/posts', {}, bindings())
     expect(res.status).toBe(500)
     expect(await res.json()).toEqual({ status: 'error', message: 'Failed to fetch posts.' })
+    expect(res.headers.get('cache-control')).toBe('no-store')
   })
 
   it('sets Cache-Control: no-store (frontend owns the only cache layer)', async () => {

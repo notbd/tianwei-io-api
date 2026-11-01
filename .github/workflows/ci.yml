@@ -1,14 +1,14 @@
 name: CI
 
 # PRs only: pushes to dev update their PR (synchronize) and pushes to main
-# re-run these checks inside deploy.yml — push triggers here would double-run.
+# re-run these checks inside deploy.yml: push triggers here would double-run.
 on:
   pull_request:
 
 permissions:
   contents: read
 
-# A force-push supersedes the running check — don't burn minutes finishing it.
+# A force-push supersedes the running check; don't burn minutes finishing it.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true

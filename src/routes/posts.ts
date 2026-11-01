@@ -1,21 +1,27 @@
 import type { AppEnv } from '@/context'
 import { Hono } from 'hono'
-import { apiRes } from '@/lib/responses'
+import { apiRes, failWith } from '@/lib/responses'
+import { validSlug } from '@/lib/validation'
 
-/**
- * GET /api/posts - Public list of posts (summary shape, published only).
- */
-const postsRoute = new Hono<AppEnv>()
+/** Public reads: published posts only. Mounted at /api. */
+const postsRoutes = new Hono<AppEnv>()
 
-postsRoute.get('/posts', async (c) => {
-  try {
-    const rows = await c.get('repo').fetchPosts()
-    return apiRes.list(c, rows)
-  }
-  catch (err) {
-    console.error('Error fetching posts:', err)
-    return apiRes.err(c, 'Failed to fetch posts.', 500)
-  }
+postsRoutes.get('/posts', async (c) => {
+  const posts = await c.get('repo').fetchPosts().catch(failWith('Failed to fetch posts.'))
+  return apiRes.list(c, posts)
 })
 
-export default postsRoute
+postsRoutes.get('/categories', async (c) => {
+  const categories = await c.get('repo').fetchCategories().catch(failWith('Failed to fetch categories.'))
+  return apiRes.list(c, categories)
+})
+
+postsRoutes.get('/post/:slug', validSlug, async (c) => {
+  const { slug } = c.req.valid('param')
+  const post = await c.get('repo').fetchPostBySlug(slug).catch(failWith('Failed to fetch post.'))
+  return post
+    ? apiRes.ok(c, post)
+    : apiRes.err(c, 'Post not found.', 404)
+})
+
+export default postsRoutes

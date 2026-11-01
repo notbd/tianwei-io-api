@@ -2,7 +2,7 @@
 # Local development bindings for `wrangler dev`
 # ============================================================
 # Copy this file to .dev.vars and fill in the values.
-# .dev.vars is gitignored — never commit real credentials.
+# .dev.vars is gitignored; never commit real credentials.
 #
 # Note: the neon-http driver speaks Neon's HTTP proxy protocol,
 # so point DATABASE_URL at a Neon branch (create a free dev
