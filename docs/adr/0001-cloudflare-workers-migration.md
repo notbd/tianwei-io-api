@@ -48,3 +48,10 @@ Sub-decisions:
   a failed boot; the deploy pipeline's smoke check covers this.
 - Local dev needs a Neon dev branch (the HTTP driver cannot reach a local
   TCP Postgres); documented in `.dev.vars.example`.
+
+---
+
+Note (2026-10-31): live responses carry `cf-placement: local-<colo>`, so Smart
+Placement is not relocating the Worker (it needs sustained traffic from several
+locations). The outcome is the same because the only callers, Vercel builds and
+ISR in us-east-1, already sit next to Neon; see the README's Design Notes.
