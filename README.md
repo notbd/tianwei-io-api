@@ -77,6 +77,7 @@ For deploy verification, `pnpm smoke <baseline-url> <candidate-url>` diffs every
 - `NODE_ENV`, `ALLOWED_ORIGINS`: plain vars in `wrangler.jsonc` (production) / `.dev.vars` (local)
 - `DATABASE_URL`: Worker secret — `pnpm wrangler secret put DATABASE_URL`
 - `PREVIEW_SECRET` (optional): Worker secret enabling the draft-preview endpoint
+- `worker-configuration.d.ts`: workerd runtime types that `src/` is type-checked against; regenerate with `pnpm cf-typegen` after bumping `wrangler` or `compatibility_date`
 - CI deploys on push to `main` via `cloudflare/wrangler-action` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` repo secrets)
 
 Design records live in [`docs/adr/`](./docs/adr/).

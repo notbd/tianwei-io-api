@@ -9,6 +9,7 @@ export default antfu(
     ignores: [
       'dist/**',
       'build/**',
+      'worker-configuration.d.ts',
     ],
   },
 
