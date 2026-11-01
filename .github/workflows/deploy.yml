@@ -31,6 +31,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: checks
+    # Only main deploys to production; a workflow_dispatch from another
+    # branch still runs the checks above but stops here.
+    if: github.ref == 'refs/heads/main'
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -50,18 +53,21 @@ jobs:
 
       # DATABASE_URL is a Worker secret (set once via `wrangler secret put`),
       # not a GitHub secret — deploys never touch it.
-      # Pinned to a commit SHA (v4.0.0): this job holds the account API token,
+      # Pinned to a commit SHA: this job holds the account API token,
       # so a floating major tag would be a supply-chain risk.
       - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       # The deploy step succeeding only means the upload worked — verify the
-      # Worker actually serves before calling the deploy green.
+      # Worker actually serves, and can reach the database, before calling the
+      # deploy green. Retries absorb propagation of the new version.
       - name: Verify deployment
         run: |
-          sleep 5
-          curl -sf --max-time 15 https://tio.twz.app/health | grep -q '"status":"ok"'
-          echo "health check passed"
+          curl -sf --retry 6 --retry-delay 5 --retry-all-errors --max-time 15 \
+            https://tio.twz.app/health | grep -q '"status":"ok"'
+          curl -sf --retry 6 --retry-delay 5 --retry-all-errors --max-time 15 \
+            https://tio.twz.app/api/categories | grep -q '"status":"success"'
+          echo "health and database checks passed"
