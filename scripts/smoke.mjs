@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /**
- * Cutover smoke test: byte-diff every endpoint between two deployments.
+ * Smoke test: byte-diff every endpoint between two deployments, e.g.
+ * production against a local `wrangler dev` before a release.
  *
  * Usage:
  *   node scripts/smoke.mjs <baseline-url> <candidate-url>
- *   node scripts/smoke.mjs https://tio.twz.app https://tianwei-io-api.<acct>.workers.dev
+ *   node scripts/smoke.mjs https://tio.twz.app http://127.0.0.1:8787
  *
  * Compares status codes and exact response bodies (the wire contract the
  * frontend parses). Headers are informational only — platforms add their own.
@@ -19,12 +20,11 @@ if (!baselineBase || !candidateBase) {
   process.exit(2)
 }
 
-// Fields either side is allowed to have that the other may lack
-// (additive contract evolution, e.g. updatedAt introduced with the
-// Workers migration). Stripped from BOTH sides before comparison, so the
-// script also works once the baseline itself serves the new field
-// (e.g. re-running against workers.dev during the domain switch).
-const ALLOWED_NEW_FIELDS = new Set(['updatedAt'])
+// Fields either side may have that the other lacks. Empty by default so a
+// dropped field fails the run; add a field here only while it rolls out
+// content → api (as updatedAt did in 2026-07), and remove it afterwards.
+// Stripped from BOTH sides before comparison.
+const ALLOWED_NEW_FIELDS = new Set()
 
 // Key-order-independent canonical form: sorted keys + allowed additive
 // fields removed. JSON.stringify alone would be order-sensitive and fail
@@ -66,7 +66,7 @@ function bodiesMatch(baselineBody, candidateBody) {
 
 const CHECKS = [
   { path: '/', expectStatus: 200 },
-  { path: '/health', expectStatus: 200, ignoreBody: true }, // env name may differ pre-cutover
+  { path: '/health', expectStatus: 200, ignoreBody: true }, // prod says production, wrangler dev says development
   { path: '/api/posts', expectStatus: 200 },
   { path: '/api/categories', expectStatus: 200 },
   { path: '/api/post/__FIRST_SLUG__', expectStatus: 200 },
