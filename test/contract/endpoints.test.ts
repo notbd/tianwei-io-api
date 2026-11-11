@@ -16,11 +16,19 @@ describe('/', () => {
 })
 
 describe('/health', () => {
-  it('reports status and environment', async () => {
+  it('reports status and environment, and no commit when COMMIT_SHA is unset', async () => {
     const app = createApp({ repo: createFakeRepo().repo })
     const res = await app.request('/health', {}, bindings({ NODE_ENV: 'production' }))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ status: 'ok', env: 'production' })
+  })
+
+  it('reports the deployed commit, uncached', async () => {
+    const app = createApp({ repo: createFakeRepo().repo })
+    const res = await app.request('/health', {}, bindings({ COMMIT_SHA: '0123abc' }))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ status: 'ok', env: 'production', commit: '0123abc' })
+    expect(res.headers.get('cache-control')).toBe('no-store')
   })
 })
 

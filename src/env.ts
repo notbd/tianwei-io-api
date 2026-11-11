@@ -41,6 +41,12 @@ const EnvSchema = z.object({
       return undefined
     }),
 
+  // The git SHA this version was deployed from, reported by /health so the
+  // deploy can tell its own version from the previous one. scripts/deploy.ts
+  // sets it per deploy (`wrangler deploy --var COMMIT_SHA:<sha>`); absent
+  // locally. Deliberately unvalidated: a malformed value must not 500 the API.
+  COMMIT_SHA: z.string().optional(),
+
   // Comma-separated list of allowed CORS origins.
   // If empty or omitted, CORS middleware is not applied.
   ALLOWED_ORIGINS: z

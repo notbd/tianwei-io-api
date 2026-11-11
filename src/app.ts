@@ -75,9 +75,13 @@ export function createApp(options: CreateAppOptions = {}) {
     return c.text('Hello from tianwei.io API!')
   })
 
-  // Health check endpoint for uptime monitoring
+  // Health check for uptime monitoring and the deploy's version check.
+  // `commit` is omitted when COMMIT_SHA is unset (JSON drops undefined).
+  // no-store: a cached answer would let the deploy see a stale commit.
   app.get('/health', (c) => {
-    return c.json({ status: 'ok', env: c.get('env').NODE_ENV })
+    const { NODE_ENV, COMMIT_SHA } = c.get('env')
+    c.header('Cache-Control', 'no-store')
+    return c.json({ status: 'ok', env: NODE_ENV, commit: COMMIT_SHA })
   })
 
   app.route('/api', postsRoutes)
