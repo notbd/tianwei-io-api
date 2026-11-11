@@ -18,5 +18,3 @@ node_modules/
 # logs
 logs/
 *.log
-npm-debug.log*
-pnpm-debug.log*
