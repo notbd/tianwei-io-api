@@ -17,7 +17,7 @@
     "smoke": "node scripts/smoke.mjs",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p test",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test && tsc --noEmit -p scripts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    // Node runs these files directly: it strips types and resolves imports
+    // as written, so no path aliases, explicit extensions, erasable syntax.
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "paths": {},
+    "types": ["node"],
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true
+  },
+  "include": ["*.ts"]
+}
