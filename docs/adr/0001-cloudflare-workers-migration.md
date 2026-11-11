@@ -31,7 +31,8 @@ Sub-decisions:
 - **Rate limiting: platform, not application.** A per-isolate in-memory
   Map is meaningless on Workers (one counter per isolate per colo). One
   Cloudflare zone rate-limiting rule is meant to replace all of it with
-  zero code; as of 2026-11 it is not set up.
+  zero code; whether it is set up is in the [README](../../README.md)
+  (How It Works).
 - **`Cache-Control: no-store` on `/api/*`.** The frontend's Next.js data
   cache (revalidate: false + on-demand invalidation) is the single
   cache layer in the system. Any edge/API cache here would serve stale
