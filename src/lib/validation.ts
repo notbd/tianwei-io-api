@@ -1,5 +1,6 @@
 import { validator } from 'hono/validator'
 import { z } from 'zod'
+import { SLUG_MAX_LENGTH } from '@/db/schema'
 import { apiRes } from '@/lib/responses'
 
 /**
@@ -10,7 +11,7 @@ const slugParam = z.object({
   slug: z
     .string()
     .min(1, 'Slug cannot be empty')
-    .max(200, 'Slug is too long')
+    .max(SLUG_MAX_LENGTH, 'Slug is too long')
     .regex(
       /^[a-z0-9]+(-[a-z0-9]+)*$/,
       'Slug must be lowercase alphanumeric with non-consecutive hyphens',
