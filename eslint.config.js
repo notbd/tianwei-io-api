@@ -2,10 +2,6 @@ import antfu from '@antfu/eslint-config'
 
 export default antfu(
   {
-    stylistic: {
-      indent: 2,
-      quotes: 'single',
-    },
     // Type-aware rules. Each file is checked against its nearest tsconfig
     // (src: the Worker's; test/ and scripts/: their own). vitest.config.ts
     // belongs to test/tsconfig.json, which that lookup never reaches from the
