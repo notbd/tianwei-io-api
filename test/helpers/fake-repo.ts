@@ -1,3 +1,4 @@
+import type { WorkerBindings } from '@/env'
 import type { Post, PostsRepo, ReadOptions } from '@/lib/repo'
 
 // Dates are ET midnight, as the content engine stores them
@@ -91,7 +92,7 @@ export function createThrowingRepo(): PostsRepo {
 }
 
 /** Standard bindings for app.request(); override per test as needed. */
-export function bindings(overrides: Record<string, string> = {}) {
+export function bindings(overrides: Partial<WorkerBindings> = {}) {
   return {
     NODE_ENV: 'production',
     DATABASE_URL: 'postgresql://user:pass@example.test/db',

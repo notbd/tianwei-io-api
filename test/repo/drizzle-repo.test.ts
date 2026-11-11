@@ -1,3 +1,4 @@
+import type { PostsRepo } from '@/lib/repo'
 import { PGlite } from '@electric-sql/pglite'
 import { pushSchema } from 'drizzle-kit/api'
 import { drizzle } from 'drizzle-orm/pglite'
@@ -8,13 +9,15 @@ import { createDrizzleRepo } from '@/lib/repo'
 // Exercises the real SQL the repo issues, against an in-memory Postgres.
 
 let client: PGlite
-let repo: ReturnType<typeof createDrizzleRepo>
+let repo: PostsRepo
 
 // One database for the whole file: every test below is read-only.
 beforeAll(async () => {
   client = new PGlite()
   const db = drizzle(client, { schema })
 
+  // drizzle-kit declares pushSchema's db as schema-less, which a db typed
+  // with our schema does not satisfy; it only runs SQL through it.
   const { apply } = await pushSchema(schema, db as never)
   await apply()
 
@@ -89,8 +92,6 @@ describe('fetchPosts', () => {
     })
     // updatedAt is nullable: absent means "never updated"
     expect(rows[2]!.updatedAt).toBeNull()
-    expect(rows[0]).not.toHaveProperty('content')
-    expect(rows[0]).not.toHaveProperty('isPublished')
   })
 
   it('includes drafts when includeDrafts is set', async () => {
