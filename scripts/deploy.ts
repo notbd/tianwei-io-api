@@ -182,14 +182,24 @@ const OnePost = z.object({
  * confirms /health still reports `sha`; if it does not, starts over. Network
  * errors and 5xx are retried within the budget (the database may be waking
  * up); a 4xx, a wrong envelope or an empty list fail at once.
+ *
+ * The budget is a hard limit on every path: no request is sent once it has
+ * run out, and every way back to an earlier step goes through `retry`,
+ * which waits out the interval or fails.
  */
 export async function verify(baseUrl: string, sha: string, { fetch, timing }: Pick<Deps, 'fetch' | 'timing'>) {
   const deadline = Date.now() + timing.budgetMs
 
-  /** One GET within the per-request cap; a network error or timeout comes back as `error`. */
+  /**
+   * One GET within the per-request cap and what is left of the budget; a
+   * network error, a timeout or a spent budget comes back as `error`.
+   */
   async function get(path: string): Promise<{ status: number, body: string } | { error: string }> {
+    const left = deadline - Date.now()
+    if (left <= 0)
+      return { error: 'not sent, the budget had run out' }
     try {
-      const signal = AbortSignal.timeout(Math.max(1, Math.min(timing.timeoutMs, deadline - Date.now())))
+      const signal = AbortSignal.timeout(Math.min(timing.timeoutMs, left))
       const res = await fetch(new URL(path, baseUrl), { signal })
       return { status: res.status, body: await res.text() }
     }
@@ -200,12 +210,19 @@ export async function verify(baseUrl: string, sha: string, { fetch, timing }: Pi
     }
   }
 
-  /** Waits out the interval, or fails once the budget cannot cover another attempt. */
+  /**
+   * Waits out the interval, or fails once the budget cannot cover another
+   * attempt. Checked again after the wait, which can overrun on a busy
+   * runner, so the failure always names what was last seen.
+   */
   async function retry(step: string, last: string) {
     console.info(`  ${step}: ${last}; retrying`)
+    const spent = () => new Error(`${step}: still failing when the ${timing.budgetMs / 1000}s budget ran out (last: ${last})`)
     if (deadline - Date.now() <= timing.intervalMs)
-      throw new Error(`${step}: still failing when the ${timing.budgetMs / 1000}s budget ran out (last: ${last})`)
+      throw spent()
     await sleep(timing.intervalMs)
+    if (deadline - Date.now() <= 0)
+      throw spent()
   }
 
   async function reportedCommit() {
@@ -261,7 +278,7 @@ export async function verify(baseUrl: string, sha: string, { fetch, timing }: Pi
       console.info(`Verified ${sha} at ${baseUrl}: /health, ${posts.length} posts, categories, /api/post/${first.slug}.`)
       return
     }
-    console.info(`  /health after the reads: ${last}; polling again`)
+    await retry('/health after the reads', last)
   }
 }
 
