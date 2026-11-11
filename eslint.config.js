@@ -22,7 +22,7 @@ export default antfu(
       'no-console': [
         'error',
         {
-          allow: ['warn', 'error', 'info', 'dir'],
+          allow: ['warn', 'error', 'info'],
         },
       ],
       // one way to declare object types (unions already need `type`), as in the web repo
