@@ -37,15 +37,12 @@ function canonicalize(value) {
     return value.map(canonicalize)
   if (value !== null && typeof value === 'object') {
     return Object.fromEntries(
-      Object.entries(value)
-        .filter(([key]) => !ALLOWED_NEW_FIELDS.has(key))
-        // object keys are unique, so no two compare equal
-        .sort(([a], [b]) => (a < b
-          ? -1
-          : 1))
-        .map(([key, inner]) => [
+      Object.keys(value)
+        .filter(key => !ALLOWED_NEW_FIELDS.has(key))
+        .sort()
+        .map(key => [
           key,
-          canonicalize(inner),
+          canonicalize(value[key]),
         ]),
     )
   }
