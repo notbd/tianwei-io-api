@@ -31,6 +31,14 @@ export default antfu(
   },
 
   {
+    // a test asserts what it got instead of asserting it is there
+    files: ['test/**'],
+    rules: {
+      'ts/no-non-null-assertion': 'error',
+    },
+  },
+
+  {
     // Hono types a middleware's context input as `any`, so handing `c` on to
     // logger() and cors() trips this rule although no untyped value flows.
     files: ['src/app.ts'],
