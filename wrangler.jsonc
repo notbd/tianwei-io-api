@@ -5,7 +5,8 @@
   "compatibility_date": "2026-06-01",
 
   // Smart placement may move the Worker next to Neon (us-east-1); in practice
-  // the callers already sit there, so it runs where requests arrive (README).
+  // the callers already sit there, so it runs where requests arrive
+  // (docs/adr/0001).
   "placement": { "mode": "smart" },
 
   "observability": {

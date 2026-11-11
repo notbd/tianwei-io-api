@@ -34,7 +34,7 @@ export const apiRes = {
     return c.json({ status: 'success', count: data.length, data } satisfies SuccessListResponse<T>)
   },
 
-  err(c: Context, message: string, status: ContentfulStatusCode = 500) {
+  err(c: Context, message: string, status: ContentfulStatusCode) {
     return c.json({ status: 'error', message } satisfies ErrorResponse, status)
   },
 }

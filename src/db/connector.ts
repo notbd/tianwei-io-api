@@ -1,5 +1,4 @@
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
-import type * as schemaShape from './schema'
 import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
 import * as schema from './schema'
@@ -17,7 +16,7 @@ import * as schema from './schema'
  * Satisfied by both neon-http (production) and PGlite (tests), so query
  * code and the repo layer stay driver-agnostic.
  */
-export type Database = PgDatabase<PgQueryResultHKT, typeof schemaShape>
+export type Database = PgDatabase<PgQueryResultHKT, typeof schema>
 
 const dbCache = new Map<string, Database>()
 

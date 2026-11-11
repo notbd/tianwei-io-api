@@ -19,10 +19,9 @@ export type CreateAppOptions = {
 /**
  * Build the Worker's Hono app.
  *
- * Note on shape: on Workers there is no boot phase (configuration arrives
- * per request via `c.env`), so everything the Node.js version decided at
- * startup (env validation, CORS on/off, dev-only logging and routes) is
- * decided per request here, memoized where it matters.
+ * Workers has no boot phase: configuration arrives per request (`c.env`),
+ * so env validation, CORS, and the dev-only logging and routes are decided
+ * per request, memoized where it matters.
  */
 export function createApp(options: CreateAppOptions = {}) {
   const app = new Hono<AppEnv>()

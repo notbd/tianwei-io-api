@@ -4,14 +4,14 @@ import { z } from 'zod'
 // Environment Schema
 // ---------------------------------------------------------------------------
 // Validates the Worker's bindings (wrangler `vars` + secrets + .dev.vars).
-// Unlike the Node.js version, there is no process-wide environment: bindings
-// arrive per request on `c.env`, so validation happens per request and is
-// memoized on the bindings object (stable for the lifetime of an isolate).
+// Workers has no process-wide environment: bindings arrive per request on
+// `c.env`, so validation happens per request and is memoized on the
+// bindings object (stable for the lifetime of an isolate).
 // ---------------------------------------------------------------------------
 
 const EnvSchema = z.object({
-  // Runtime environment: controls dev-only routes and request logging.
-  // Kept as NODE_ENV so /health's `env` field is unchanged from the fly.io era.
+  // Runtime environment: controls dev-only routes and request logging;
+  // /health reports it as `env`.
   // Defaults to PRODUCTION: this value gates the drafts-exposing __dev route,
   // so a missing binding must fail closed (.dev.vars sets it explicitly).
   NODE_ENV: z
@@ -52,11 +52,7 @@ const EnvSchema = z.object({
   ALLOWED_ORIGINS: z
     .string()
     .optional()
-    .transform((val) => {
-      if (!val || val.trim() === '')
-        return []
-      return val.split(',').map(origin => origin.trim()).filter(Boolean)
-    }),
+    .transform(val => val?.split(',').map(origin => origin.trim()).filter(Boolean) ?? []),
 })
 
 export type Env = z.infer<typeof EnvSchema>
