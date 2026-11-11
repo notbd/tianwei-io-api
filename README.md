@@ -2,10 +2,9 @@
 <samp>
 <h1>tianwei-io-api</h1>
 
-[![CI](https://github.com/notbd/tianwei-io-api/actions/workflows/ci.yml/badge.svg)](https://github.com/notbd/tianwei-io-api/actions/workflows/ci.yml)
 [![Deploy](https://github.com/notbd/tianwei-io-api/actions/workflows/deploy.yml/badge.svg?branch=main)](https://github.com/notbd/tianwei-io-api/actions/workflows/deploy.yml)
 
-The API layer of my personal website [tianwei.io](https://tianwei.io), served at `tio.twz.app`.
+The API layer of my personal website [tianwei.io](https://tianwei.io), served at [tio.twz.app](https://tio.twz.app).
 
 <h2>Stack</h2>
 
@@ -18,19 +17,7 @@ The API layer of my personal website [tianwei.io](https://tianwei.io), served at
 
 <h2>Site Architecture</h2>
 
-The site is split into three repos, each deployed on its own:
-
-- **[Frontend](https://github.com/notbd/tianwei.io)**: a Next.js app that renders every page as static HTML from data it fetches through the API.
-- **[API Layer](https://github.com/notbd/tianwei-io-api)** (this repo): a read-only REST API on Cloudflare Workers that serves the published posts from Postgres.
-- **[Content Engine](https://github.com/notbd/tianwei-io-content)**: the posts themselves, written in MDX, validated and synced into Postgres on Neon.
-
-A post goes live in three steps:
-
-1. A push to `main` in the content engine syncs every post into Postgres in one transaction.
-2. The same deploy calls the frontend's `/api/revalidate`.
-3. The frontend expires its cached data and renders the pages again through this API.
-
-The frontend's data cache is the only cache in the system (this API does not cache), so step 2 is the one place where new content takes effect. Three services is more than a personal site needs; I split it on purpose, to practice what only exists between services: API contracts, independent deploys and cache invalidation across repos ([tianwei.io ADR-0001](https://github.com/notbd/tianwei.io/blob/main/docs/adr/0001-three-tier-architecture.md)).
+This is the API, one of the three repos behind the site, next to the [frontend](https://github.com/notbd/tianwei.io) and the [content engine](https://github.com/notbd/tianwei-io-content). How the three fit together, with a diagram, is in [the frontend's README](https://github.com/notbd/tianwei.io/blob/main/README.md).
 
 <h2>How It Works</h2>
 
@@ -39,7 +26,7 @@ The frontend's data cache is the only cache in the system (this API does not cac
 - **No caching**: every `/api` response carries `Cache-Control: no-store`, so a content sync never waits on an edge or browser cache.
 - **One error path**: `src/routes/posts.ts` holds the public reads and `src/routes/drafts.ts` the two that include drafts. A failed read throws an `HTTPException` with the endpoint's public message, and `app.onError` logs the cause once and answers the error envelope.
 - **Testable data access**: handlers depend on a `PostsRepo` interface; production wires Drizzle over neon-http, and tests inject fakes or PGlite.
-- **Rate limiting** belongs in a Cloudflare rule in front of the Worker (configured in the dashboard, not tracked in this repo), not in application code: an in-memory counter means nothing across Worker isolates.
+- **Rate limiting** is meant for a Cloudflare rule in front of the Worker, not application code (an in-memory counter means nothing across Worker isolates); the rule is not set up yet.
 
 <h2>Endpoints</h2>
 
@@ -50,22 +37,48 @@ The frontend's data cache is the only cache in the system (this API does not cac
 | `GET /api/post/:slug` | One published post, with its MDX content |
 | `GET /api/__preview/post/:slug` | One post, drafts included, for the frontend's draft preview; needs `Authorization: Bearer <PREVIEW_SECRET>` and answers 404 when no secret is configured |
 | `GET /api/__dev/posts` | Every post, drafts included; local development only (404 in production) |
-| `GET /health` | `{"status": "ok", "env": "production"}` |
+| `GET /health` | `{"status": "ok", "env": "production", "commit": "<sha>"}`, uncached; `commit` is the git commit the deploy shipped, absent where `COMMIT_SHA` is unset (locally) |
 | `GET /` | A greeting |
 
-Every `/api` response is JSON in one envelope: `{"status": "success", "data": ...}` (lists add `count`) or `{"status": "error", "message": ...}`. Contract tests here and in the frontend pin these shapes exactly.
+Every `/api` response is JSON in one envelope: `{"status": "success", "data": ...}` (lists add `count`) or `{"status": "error", "message": ...}`. Contract tests here and in the frontend pin these shapes exactly. One post, from `GET /api/post/1password-git-workflow` (the content cut short):
+
+```json
+{
+  "status": "success",
+  "data": {
+    "id": 13,
+    "slug": "1password-git-workflow",
+    "category": "articles",
+    "title": "Integrating 1Password into My Git Workflow",
+    "description": "How I use 1Password ssh agent to help authenticate with GitHub and sign commits.",
+    "author": "Tianwei Zhang",
+    "createdAt": "2025-10-23T04:00:00.000Z",
+    "updatedAt": null,
+    "isPublished": true,
+    "content": "\nAs a developer, I deal with git commits and git pushes on a regular basis. ..."
+  }
+}
+```
+
+`GET /api/posts` lists the same fields without `content` and `isPublished`. `description` and `updatedAt` may be `null`; dates are UTC instants of midnight in `America/New_York`.
 
 <h2>Local Run</h2>
 
-Prerequisites: **Node.js 26** (see `.nvmrc`), **pnpm 10** and a Neon database branch (the neon-http driver cannot reach a plain local Postgres).
+Prerequisites: **Node.js 26** (see `.nvmrc`), **pnpm 10** and a Neon database with the posts table (the neon-http driver cannot reach a plain local Postgres). Without access to the production project's branches, make one:
+
+1. Create a free project on [Neon](https://neon.com) and copy its connection string.
+2. In a checkout of [tianwei-io-content](https://github.com/notbd/tianwei-io-content), after `pnpm install`, create the table and fill it: `DATABASE_URL=<url> pnpm db:migrate`, then `DATABASE_URL=<url> pnpm sync:prod`.
+3. Use the same URL as `DATABASE_URL` in `.dev.vars` below.
 
 ```shell
 git clone git@github.com:notbd/tianwei-io-api.git
 cd tianwei-io-api
 pnpm install
-cp .dev.vars.example .dev.vars   # then set DATABASE_URL to a Neon dev branch
+cp .dev.vars.example .dev.vars   # then set DATABASE_URL
 pnpm dev                         # wrangler dev on http://127.0.0.1:8787
 ```
+
+`pnpm test` needs no database: it runs on PGlite in memory.
 
 <h2>Configuration</h2>
 
@@ -75,6 +88,7 @@ pnpm dev                         # wrangler dev on http://127.0.0.1:8787
 | `ALLOWED_ORIGINS` | Plain variable, comma-separated CORS origins; empty in production, since the frontend calls the API from its server |
 | `DATABASE_URL` | Worker secret (`pnpm wrangler secret put DATABASE_URL`): the Neon connection string |
 | `PREVIEW_SECRET` (optional) | Worker secret that enables the preview endpoint; must match the frontend's. A value shorter than 16 characters only disables preview and logs why; the public endpoints keep working |
+| `COMMIT_SHA` | Set by the deploy (`wrangler deploy --var COMMIT_SHA:<sha>`) and reported by `/health` as `commit`; unset locally |
 
 `worker-configuration.d.ts` holds the Workers runtime types `src/` is checked against; regenerate it with `pnpm cf-typegen` after bumping `wrangler` or `compatibility_date`.
 
@@ -83,22 +97,31 @@ pnpm dev                         # wrangler dev on http://127.0.0.1:8787
 ```shell
 pnpm lint
 pnpm typecheck
-pnpm test    # contract tests (exact JSON responses) + repo tests (real SQL on PGlite)
+pnpm test    # contract tests (exact JSON responses), repo tests (real SQL on PGlite), the deploy script with a fake wrangler
 pnpm smoke <baseline-url> <candidate-url>
 ```
 
-`pnpm smoke` compares every endpoint between two deployments, such as production and a local `wrangler dev` (with `NODE_ENV=production` in `.dev.vars`) before a release: status codes, and bodies as JSON with key order ignored. CI (`.github/workflows/ci.yml`) runs lint, typecheck and tests on every pull request.
+`pnpm smoke` compares every endpoint between two deployments, such as production and a local `wrangler dev` (with `NODE_ENV=production` in `.dev.vars`) before a release: status codes, and bodies as JSON with key order ignored. CI (`.github/workflows/ci.yml`) runs lint, typecheck and tests on every pull request, and `node scripts/deploy.ts check`, which proves the deploy script loads and reaches wrangler without credentials.
 
 <h2>Deploy</h2>
 
-A push to `main` runs the checks again, deploys with `cloudflare/wrangler-action` (repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`), then checks that `/health` and `/api/posts` answer on `tio.twz.app`.
+A push to `main` runs `.github/workflows/deploy.yml`:
 
-> **Contract rule**: the Worker selects every column its schema declares, so a new column must reach the database (merge and deploy tianwei-io-content) before the Worker's schema references it. Changes that span repos ship content → API → frontend, additive first.
+1. Run lint, typecheck, tests and `node scripts/deploy.ts check` again.
+2. Stop unless the commit is the head of `main`: re-running an old run would deploy old code over newer. A run that a newer push overtakes before it gets here stops; the newer run deploys.
+3. `node scripts/deploy.ts release <sha>`: save the version serving all traffic (stop, with nothing deployed, unless exactly one does), `wrangler deploy --var COMMIT_SHA:<sha>`, then verify within 90 s. `/health` must report `<sha>`; `/api/posts`, `/api/categories` and the first listed post must answer 200 in a success envelope; then `/health` must still report `<sha>` (if not, it waits for it again). Network errors and 5xx are retried every 3 s (the database may be waking up); a 4xx, a wrong envelope or an empty list fail at once.
+4. If anything failed or the run was cancelled, `node scripts/deploy.ts restore` rolls back to the saved version when a different one is live, and confirms it is live again. The job stays red. If the rollback fails, the log names the saved version and the command that restores it by hand.
+
+wrangler runs from this repo's dependencies (`pnpm exec`), and only steps 3 and 4 get the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. Deploys run one at a time. `node scripts/deploy.ts verify <url> <sha>` runs step 3's verification alone against any deployment; the `DEPLOY_VERIFY_*` variables can only shorten its timing.
+
+The new version takes traffic before it is verified, an exception to the deploy handshake the other repos follow; why, and what was considered instead, is in [tianwei.io ADR-0006](https://github.com/notbd/tianwei.io/blob/main/docs/adr/0006-cross-repo-releases.md).
+
+> **Release order**: the Worker selects every column its schema declares, so the order in which this repo and the content engine ship a schema change matters. Which repo goes first for any change that spans repos follows the rule in [tianwei.io ADR-0006](https://github.com/notbd/tianwei.io/blob/main/docs/adr/0006-cross-repo-releases.md); such a release is staged first per [`release-verification.md`](https://github.com/notbd/tianwei.io/blob/main/docs/release-verification.md).
 
 Design records are in [`docs/adr/`](./docs/adr/).
 
 <h2>License</h2>
 
 Source code is licensed under <a href='./LICENSE'>AGPLv3</a>.<br>
-The content is licensed under <a href='https://creativecommons.org/licenses/by-nc-sa/4.0/'>CC BY-NC-SA 4.0</a>.
+Posts (in <a href='https://github.com/notbd/tianwei-io-content'>tianwei-io-content</a>) are licensed under <a href='https://creativecommons.org/licenses/by-nc-sa/4.0/'>CC BY-NC-SA 4.0</a>.
 </samp>
