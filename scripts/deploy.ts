@@ -31,9 +31,9 @@ export type Wrangler = (args: string[], options?: { capture?: boolean }) => Prom
 export type Fetch = (url: URL, init: { signal: AbortSignal }) => Promise<Response>
 
 /** Verification timing: total budget, pause between attempts, cap per request (body included). */
-export interface Timing { budgetMs: number, intervalMs: number, timeoutMs: number }
+export type Timing = { budgetMs: number, intervalMs: number, timeoutMs: number }
 
-export interface Deps {
+export type Deps = {
   wrangler: Wrangler
   fetch: Fetch
   /** Where release saves the pre-deploy version for restore. */

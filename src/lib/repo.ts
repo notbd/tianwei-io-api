@@ -8,7 +8,7 @@ export type Post = typeof posts.$inferSelect
 /** The list shape served by /api/posts: everything but the body and the flag. */
 export type PostSummary = Omit<Post, 'content' | 'isPublished'>
 
-export interface FetchPostsConfig {
+export type FetchPostsConfig = {
   ignorePublishStatus?: boolean
 }
 
@@ -17,7 +17,7 @@ export interface FetchPostsConfig {
  * never on a concrete driver: production wires it to Drizzle over
  * neon-http, tests inject fakes or a PGlite-backed instance.
  */
-export interface PostsRepo {
+export type PostsRepo = {
   /** List posts (summary shape), newest first (createdAt, then id). Published only by default. */
   fetchPosts: (config?: FetchPostsConfig) => Promise<PostSummary[]>
   /** Fetch one post with full content; null if absent or unpublished. */

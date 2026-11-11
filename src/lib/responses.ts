@@ -5,18 +5,18 @@ import { HTTPException } from 'hono/http-exception'
 // The wire envelopes. Every message string passed to these helpers is part
 // of the contract the frontend parses (test/contract pins them).
 
-export interface SuccessResponse<T> {
+export type SuccessResponse<T> = {
   status: 'success'
   data: T
 }
 
-export interface SuccessListResponse<T> {
+export type SuccessListResponse<T> = {
   status: 'success'
   count: number
   data: T[]
 }
 
-export interface ErrorResponse {
+export type ErrorResponse = {
   status: 'error'
   message: string
 }

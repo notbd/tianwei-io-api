@@ -11,7 +11,7 @@ import { apiRes } from '@/lib/responses'
 import draftsRoutes from '@/routes/drafts'
 import postsRoutes from '@/routes/posts'
 
-export interface CreateAppOptions {
+export type CreateAppOptions = {
   /** Override the data layer (tests inject fakes here). */
   repo?: PostsRepo
 }
