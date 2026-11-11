@@ -41,3 +41,7 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      # the deploy script loads and reaches wrangler, without credentials
+      - name: Deploy script
+        run: node scripts/deploy.ts check
