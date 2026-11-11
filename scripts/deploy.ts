@@ -184,15 +184,17 @@ const OnePost = z.object({
  * up); a 4xx, a wrong envelope or an empty list fail at once.
  *
  * The budget is a hard limit on every path: no request is sent once it has
- * run out, and every way back to an earlier step goes through `retry`,
- * which waits out the interval or fails.
+ * run out, an answer that arrives after it does not count, and every way
+ * back to an earlier step goes through `retry`, which waits out the
+ * interval or fails.
  */
 export async function verify(baseUrl: string, sha: string, { fetch, timing }: Pick<Deps, 'fetch' | 'timing'>) {
   const deadline = Date.now() + timing.budgetMs
 
   /**
    * One GET within the per-request cap and what is left of the budget; a
-   * network error, a timeout or a spent budget comes back as `error`.
+   * network error, a timeout, a spent budget or an answer that came after
+   * the budget ran out comes back as `error`.
    */
   async function get(path: string): Promise<{ status: number, body: string } | { error: string }> {
     const left = deadline - Date.now()
@@ -201,7 +203,11 @@ export async function verify(baseUrl: string, sha: string, { fetch, timing }: Pi
     try {
       const signal = AbortSignal.timeout(Math.min(timing.timeoutMs, left))
       const res = await fetch(new URL(path, baseUrl), { signal })
-      return { status: res.status, body: await res.text() }
+      const body = await res.text()
+      // the signal is a request to stop, not a guarantee the answer came in time
+      if (Date.now() > deadline)
+        return { error: `HTTP ${res.status}, after the budget had run out` }
+      return { status: res.status, body }
     }
     catch (error) {
       return {
