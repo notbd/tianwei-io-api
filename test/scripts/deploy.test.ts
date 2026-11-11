@@ -62,7 +62,8 @@ function fakeWrangler(on: {
   } = on
   const wrangler: Wrangler = async (args) => {
     calls.push(args)
-    switch (args[0]) {
+    const [command = ''] = args
+    switch (command) {
       case 'deployments': return status(worker.live)
       case 'deploy': return deploy(worker)
       case 'rollback': return rollback(worker, args[1] ?? '')

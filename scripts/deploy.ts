@@ -47,7 +47,7 @@ export type Deps = {
  * a workflow step's PATH. stdin is closed, which makes wrangler
  * non-interactive: its prompts take their defaults.
  */
-export const runWrangler: Wrangler = (args, { capture = false } = {}) => new Promise((resolve, reject) => {
+export const runWrangler: Wrangler = async (args, { capture = false } = {}) => new Promise((resolve, reject) => {
   const child = spawn('pnpm', ['exec', 'wrangler', ...args], {
     stdio: [
       'ignore',
@@ -128,7 +128,7 @@ export async function restore({ wrangler, stateFile }: Pick<Deps, 'wrangler' | '
   const manualRollback = `pnpm exec wrangler rollback ${saved} --yes --message "${ROLLBACK_MESSAGE}"`
   const failure = (reason: string) =>
     new Error(`${reason}. The version live before this deploy was ${saved}; restore it by hand: ${manualRollback}`)
-  const readLive = () => liveVersion(wrangler).catch((error: unknown) => {
+  const readLive = async () => liveVersion(wrangler).catch((error: unknown) => {
     throw failure(`Could not read the live version (${messageOf(error)})`)
   })
 
@@ -322,11 +322,11 @@ async function main([command, ...args]: string[]) {
       throw new Error('RUNNER_TEMP is unset: release and restore run inside GitHub Actions')
     return join(runnerTemp, 'worker-version-before')
   }
-  const [first, second] = args
+  const [first = '', second = ''] = args
 
   if (command === 'check' && args.length === 0)
     return check(runWrangler)
-  if (command === 'release' && args.length === 1 && first) {
+  if (command === 'release' && args.length === 1 && first !== '') {
     return release(first, {
       wrangler: runWrangler,
       fetch,
@@ -340,7 +340,7 @@ async function main([command, ...args]: string[]) {
       stateFile: stateFile(),
     })
   }
-  if (command === 'verify' && args.length === 2 && first && second) {
+  if (command === 'verify' && args.length === 2 && first !== '' && second !== '') {
     return verify(first, second, {
       fetch,
       timing: timingFromEnv(process.env),

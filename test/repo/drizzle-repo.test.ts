@@ -81,7 +81,7 @@ describe('fetchPosts', () => {
     const rows = await repo.fetchPosts()
     expect(rows.map(row => row.slug)).toEqual(['published-new', 'published-same-day', 'published-old'])
     expect(rows[0]).toEqual({
-      id: expect.any(Number),
+      id: 3, // ids follow insertion order
       slug: 'published-new',
       category: 'articles',
       title: 'New',
