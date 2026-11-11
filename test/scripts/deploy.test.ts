@@ -262,6 +262,7 @@ describe('release', () => {
     const { wrangler, worker } = fakeWrangler()
     const api = fakeApi({ '/api/posts': serverError })
 
+    // the requests move the clock: on one that stands still, the budget never runs out
     await expect(release(SHA, deps(wrangler, taking(333, api.fetch)))).rejects.toThrow('GET /api/posts')
     expect(worker.live).toBe(AFTER)
     await restore(deps(wrangler))
@@ -377,14 +378,14 @@ describe('verify', () => {
 
   it('fails when an endpoint keeps answering 5xx', async () => {
     const api = fakeApi({ '/api/categories': serverError })
-    // after three requests, 1 ms of the 1 s budget is left
+    // after five requests, 5 ms of the 1 s budget is left: not enough for another wait
     await expect(verify('https://api.example.test', SHA, {
-      fetch: taking(333, api.fetch),
+      fetch: taking(199, api.fetch),
       timing,
     }))
       .rejects
       .toThrow('GET /api/categories: still failing when the 1s budget ran out (last: HTTP 500)')
-    expect(api.attempts['/api/categories']).toBe(1)
+    expect(api.attempts['/api/categories']).toBe(3)
   })
 
   it.each([
@@ -428,8 +429,6 @@ describe('verify', () => {
   })
 
   it('fails when /health keeps falling back after the reads until the budget runs out', async () => {
-    // the first request takes 5 ms and the others 10 ms each, so the
-    // twentieth round ends 5 ms short of the 1 s budget
     // the new commit before the reads, the previous one after them, for 50
     // rounds: more than the budget covers, and finite so that a verify
     // without the limit ends too (by passing)
@@ -442,6 +441,9 @@ describe('verify', () => {
           : OLD_SHA,
       }),
     })
+    // the first request takes 5 ms and the others 10 ms each, so the
+    // twentieth round ends 5 ms short of the 1 s budget; at 10 ms each it
+    // would end exactly on it, and the failure would name a late answer
     const fetch: Fetch = async (url, init) => {
       clock.now += clock.now === 0
         ? 5
@@ -502,18 +504,19 @@ describe('verify', () => {
       expect(api.attempts['/health']).toBe(2)
     })
 
-    it('does not report success when reading the last answer outlasts the budget', async () => {
+    it('does not report success when reading the last answer uses up the budget', async () => {
       const { api, fetch } = lastHealthEndingAt(999)
-      parsingTakes(999, 1_001)
+      parsingTakes(999, 1_000)
       await expect(verify('https://api.example.test', SHA, { fetch, timing }))
         .rejects
         .toThrow(`/health after the reads: still failing when the 1s budget ran out (last: commit ${SHA}, after the budget had run out)`)
       expect(api.attempts['/health']).toBe(2)
     })
 
-    it('names the last answer when a wait outlasts the budget', async () => {
-      // a timer moves the clock, set once an answer is read: from there verify
-      // does not pause until its 5 ms wait, which the 1 ms timer then cuts into
+    it('names the last answer when a wait uses up the budget', async () => {
+      // reading the answer starts a 1 ms timer that moves the clock to the end
+      // of the budget; verify yields to timers only at its 5 ms wait, so the
+      // clock jumps during that wait
       const api = fakeApi({
         '/health': () => Response.json({ status: 'ok', env: 'production', commit: OLD_SHA }),
       })
@@ -523,7 +526,7 @@ describe('verify', () => {
         return Object.assign(res, {
           text: async () => {
             setTimeout(() => {
-              clock.now = 1_001
+              clock.now = 1_000
             }, 1)
             return body
           },
@@ -536,8 +539,8 @@ describe('verify', () => {
     })
 
     it('sends no request once the budget has run out', async () => {
-      // the second request, the list, ends at 999 ms and reading it outlasts the budget
-      parsingTakes(999, 1_001)
+      // the second request, the list, ends at 999 ms and reading it ends exactly when the budget does
+      parsingTakes(999, 1_000)
       const api = fakeApi()
       const fetch: Fetch = async (url, init) => {
         clock.now = url.pathname === '/api/posts'

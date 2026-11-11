@@ -16,7 +16,10 @@ export const AUTHOR_MAX_LENGTH = 100
  * Stores metadata, body content, and publishing state for each .mdx entry.
  *
  * Copy of tianwei-io-content/drizzle/schema.ts, which owns the migrations;
- * keep the two identical apart from this comment.
+ * keep the two identical apart from this comment. They differ on purpose
+ * only between the two releases that add or drop a column (tianwei.io
+ * ADR-0006: this copy gains a column after the table has it and loses one
+ * before the table does).
  */
 export const posts = pgTable('posts', {
   id: serial('id').primaryKey(),

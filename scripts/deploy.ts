@@ -194,16 +194,16 @@ export async function verify(baseUrl: string, sha: string, { fetch, timing }: Pi
   const left = () => deadline - Date.now()
 
   /**
-   * One GET within the per-request cap and what is left of the budget; a
-   * network error, a timeout, a spent budget or an answer that came after
-   * the budget ran out comes back as `error`.
+   * One GET, given the per-request cap or what is left of the budget,
+   * whichever is less; a network error, a timeout, a spent budget or an
+   * answer that came after the budget ran out comes back as `error`.
    */
   async function get(path: string): Promise<{ status: number, body: string } | { error: string }> {
-    const cap = Math.min(timing.timeoutMs, left())
-    if (cap <= 0)
+    const budgetLeft = left()
+    if (budgetLeft <= 0)
       return { error: 'not sent, the budget had run out' }
     try {
-      const signal = AbortSignal.timeout(cap)
+      const signal = AbortSignal.timeout(Math.min(timing.timeoutMs, budgetLeft))
       const res = await fetch(new URL(path, baseUrl), { signal })
       const body = await res.text()
       // the signal is a request to stop, not a guarantee the answer came in time
@@ -225,10 +225,10 @@ export async function verify(baseUrl: string, sha: string, { fetch, timing }: Pi
    * that was never sent.
    */
   async function retry(step: string, last: string) {
-    console.info(`  ${step}: ${last}; retrying`)
     const spent = () => new Error(`${step}: still failing when the ${timing.budgetMs / 1000}s budget ran out (last: ${last})`)
     if (left() <= timing.intervalMs)
       throw spent()
+    console.info(`  ${step}: ${last}; retrying`)
     await sleep(timing.intervalMs)
     if (left() <= 0)
       throw spent()
