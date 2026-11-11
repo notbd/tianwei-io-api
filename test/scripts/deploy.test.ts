@@ -17,6 +17,21 @@ const MESSAGE = 'Restore after a failed deploy'
 
 const timing = { budgetMs: 1_000, intervalMs: 5, timeoutMs: 100 }
 
+/**
+ * The clock the budget is measured on. It stands still unless a test moves
+ * it, so a slow machine cannot use up a budget; the waits between attempts
+ * and the per-request timeout still take real time.
+ */
+const clock = { now: 0 }
+
+/** `fetch`, with every request taking `ms` on the clock. */
+function taking(ms: number, fetch: Fetch): Fetch {
+  return async (url, init) => {
+    clock.now += ms
+    return fetch(url, init)
+  }
+}
+
 type Result = Awaited<ReturnType<Wrangler>>
 const ok = (stdout = ''): Result => ({ code: 0, stdout })
 const failed: Result = { code: 1, stdout: '' }
@@ -131,6 +146,8 @@ let stateFile: string
 
 beforeEach(async () => {
   vi.spyOn(console, 'info').mockImplementation(() => {})
+  clock.now = 0
+  vi.spyOn(Date, 'now').mockImplementation(() => clock.now)
   dir = await mkdtemp(join(tmpdir(), 'deploy-test-'))
   stateFile = join(dir, 'worker-version-before')
 })
@@ -245,7 +262,7 @@ describe('release', () => {
     const { wrangler, worker } = fakeWrangler()
     const api = fakeApi({ '/api/posts': serverError })
 
-    await expect(release(SHA, deps(wrangler, api.fetch))).rejects.toThrow('GET /api/posts')
+    await expect(release(SHA, deps(wrangler, taking(333, api.fetch)))).rejects.toThrow('GET /api/posts')
     expect(worker.live).toBe(AFTER)
     await restore(deps(wrangler))
 
@@ -323,20 +340,17 @@ describe('verify', () => {
   })
 
   it('fails when /health never reports the commit within the budget', async () => {
-    // a clock the requests move: four of them use up the 1 s budget
-    let now = 0
-    vi.spyOn(Date, 'now').mockImplementation(() => now)
     const api = fakeApi({
       '/health': () => Response.json({ status: 'ok', env: 'production', commit: OLD_SHA }),
     })
-    const fetch: Fetch = async (url, init) => {
-      now += 250
-      return api.fetch(url, init)
-    }
-    await expect(verify('https://api.example.test', SHA, { fetch, timing }))
+    // after three requests, 1 ms of the 1 s budget is left
+    await expect(verify('https://api.example.test', SHA, {
+      fetch: taking(333, api.fetch),
+      timing,
+    }))
       .rejects
       .toThrow(`/health (waiting for commit ${SHA}): still failing when the 1s budget ran out (last: commit ${OLD_SHA})`)
-    expect(api.attempts['/health']).toBe(4)
+    expect(api.attempts['/health']).toBe(3)
     expect(api.attempts['/api/posts']).toBeUndefined()
   })
 
@@ -363,10 +377,14 @@ describe('verify', () => {
 
   it('fails when an endpoint keeps answering 5xx', async () => {
     const api = fakeApi({ '/api/categories': serverError })
-    await expect(verify('https://api.example.test', SHA, { fetch: api.fetch, timing }))
+    // after three requests, 1 ms of the 1 s budget is left
+    await expect(verify('https://api.example.test', SHA, {
+      fetch: taking(333, api.fetch),
+      timing,
+    }))
       .rejects
-      // the last answer may itself land after the budget, which the message then says
-      .toThrow('GET /api/categories: still failing when the 1s budget ran out (last: HTTP 500')
+      .toThrow('GET /api/categories: still failing when the 1s budget ran out (last: HTTP 500)')
+    expect(api.attempts['/api/categories']).toBe(1)
   })
 
   it.each([
@@ -410,9 +428,8 @@ describe('verify', () => {
   })
 
   it('fails when /health keeps falling back after the reads until the budget runs out', async () => {
-    // a clock the requests move: each one takes 10 ms of a 1 s budget
-    let now = 0
-    vi.spyOn(Date, 'now').mockImplementation(() => now)
+    // the first request takes 5 ms and the others 10 ms each, so the
+    // twentieth round ends 5 ms short of the 1 s budget
     // the new commit before the reads, the previous one after them, for 50
     // rounds: more than the budget covers, and finite so that a verify
     // without the limit ends too (by passing)
@@ -426,45 +443,113 @@ describe('verify', () => {
       }),
     })
     const fetch: Fetch = async (url, init) => {
-      now += 10
+      clock.now += clock.now === 0
+        ? 5
+        : 10
       return api.fetch(url, init)
     }
     await expect(verify('https://api.example.test', SHA, { fetch, timing }))
       .rejects
       .toThrow(`/health after the reads: still failing when the 1s budget ran out (last: commit ${OLD_SHA})`)
-    // five requests a round: the budget covers twenty rounds and no more
+    // five requests a round: the budget covers twenty rounds and no wait after them
     expect(api.attempts['/api/posts']).toBe(20)
     expect(api.attempts['/health']).toBe(40)
   })
 
-  it('does not count an answer that arrives after the budget ran out', async () => {
-    // a clock the requests move: the fifth one, the last /health, ends at 1.2 s of a 1 s budget
-    let now = 0
-    vi.spyOn(Date, 'now').mockImplementation(() => now)
-    const api = fakeApi()
-    const fetch: Fetch = async (url, init) => {
-      now += 240
-      return api.fetch(url, init)
+  describe('at the end of the budget', () => {
+    /**
+     * The first four requests take 100 ms each and the fifth, the last
+     * /health, ends at `lastEndsAt` of the 1 s budget.
+     */
+    function lastHealthEndingAt(lastEndsAt: number) {
+      const api = fakeApi()
+      let sent = 0
+      const fetch: Fetch = async (url, init) => {
+        sent += 1
+        clock.now = sent === 5
+          ? lastEndsAt
+          : clock.now + 100
+        return api.fetch(url, init)
+      }
+      return { api, fetch }
     }
-    await expect(verify('https://api.example.test', SHA, { fetch, timing }))
-      .rejects
-      .toThrow('/health after the reads: still failing when the 1s budget ran out (last: HTTP 200, after the budget had run out)')
-    expect(api.attempts['/health']).toBe(2)
-  })
 
-  it('sends no request once the budget has run out', async () => {
-    // a clock the requests move: the second one ends exactly when the 1 s budget does
-    let now = 0
-    vi.spyOn(Date, 'now').mockImplementation(() => now)
-    const api = fakeApi()
-    const fetch: Fetch = async (url, init) => {
-      now += 500
-      return api.fetch(url, init)
+    /** Makes reading an answer that ended at `from` last until `to`. */
+    function parsingTakes(from: number, to: number) {
+      const parse = JSON.parse
+      vi.spyOn(JSON, 'parse').mockImplementation((text) => {
+        if (clock.now === from)
+          clock.now = to
+        const value: unknown = parse(text)
+        return value
+      })
     }
-    await expect(verify('https://api.example.test', SHA, { fetch, timing }))
-      .rejects
-      .toThrow('GET /api/categories: still failing when the 1s budget ran out (last: not sent, the budget had run out)')
-    expect(api.attempts['/api/posts']).toBe(1)
-    expect(api.attempts['/api/categories']).toBeUndefined()
+
+    it('counts a last answer that arrives before the budget runs out', async () => {
+      const { api, fetch } = lastHealthEndingAt(999)
+      await verify('https://api.example.test', SHA, { fetch, timing })
+      expect(api.attempts['/health']).toBe(2)
+    })
+
+    it.each([
+      ['exactly when', 1_000],
+      ['after', 1_200],
+    ])('does not count a last answer that arrives %s the budget runs out', async (_, lastEndsAt) => {
+      const { api, fetch } = lastHealthEndingAt(lastEndsAt)
+      await expect(verify('https://api.example.test', SHA, { fetch, timing }))
+        .rejects
+        .toThrow('/health after the reads: still failing when the 1s budget ran out (last: HTTP 200, after the budget had run out)')
+      expect(api.attempts['/health']).toBe(2)
+    })
+
+    it('does not report success when reading the last answer outlasts the budget', async () => {
+      const { api, fetch } = lastHealthEndingAt(999)
+      parsingTakes(999, 1_001)
+      await expect(verify('https://api.example.test', SHA, { fetch, timing }))
+        .rejects
+        .toThrow(`/health after the reads: still failing when the 1s budget ran out (last: commit ${SHA}, after the budget had run out)`)
+      expect(api.attempts['/health']).toBe(2)
+    })
+
+    it('names the last answer when a wait outlasts the budget', async () => {
+      // a timer moves the clock, set once an answer is read: from there verify
+      // does not pause until its 5 ms wait, which the 1 ms timer then cuts into
+      const api = fakeApi({
+        '/health': () => Response.json({ status: 'ok', env: 'production', commit: OLD_SHA }),
+      })
+      const fetch: Fetch = async (url, init) => {
+        const res = await api.fetch(url, init)
+        const body = await res.text()
+        return Object.assign(res, {
+          text: async () => {
+            setTimeout(() => {
+              clock.now = 1_001
+            }, 1)
+            return body
+          },
+        })
+      }
+      await expect(verify('https://api.example.test', SHA, { fetch, timing }))
+        .rejects
+        .toThrow(`/health (waiting for commit ${SHA}): still failing when the 1s budget ran out (last: commit ${OLD_SHA})`)
+      expect(api.attempts['/health']).toBe(1)
+    })
+
+    it('sends no request once the budget has run out', async () => {
+      // the second request, the list, ends at 999 ms and reading it outlasts the budget
+      parsingTakes(999, 1_001)
+      const api = fakeApi()
+      const fetch: Fetch = async (url, init) => {
+        clock.now = url.pathname === '/api/posts'
+          ? 999
+          : clock.now + 100
+        return api.fetch(url, init)
+      }
+      await expect(verify('https://api.example.test', SHA, { fetch, timing }))
+        .rejects
+        .toThrow('GET /api/categories: still failing when the 1s budget ran out (last: not sent, the budget had run out)')
+      expect(api.attempts['/api/posts']).toBe(1)
+      expect(api.attempts['/api/categories']).toBeUndefined()
+    })
   })
 })

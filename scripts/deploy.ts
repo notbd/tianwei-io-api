@@ -184,12 +184,14 @@ const OnePost = z.object({
  * up); a 4xx, a wrong envelope or an empty list fail at once.
  *
  * The budget is a hard limit on every path: no request is sent once it has
- * run out, an answer that arrives after it does not count, and every way
- * back to an earlier step goes through `retry`, which waits out the
- * interval or fails.
+ * run out, an answer that arrives after it does not count, success is only
+ * reported while some of it is left, and every way back to an earlier step
+ * goes through `retry`, which waits out the interval or fails.
  */
 export async function verify(baseUrl: string, sha: string, { fetch, timing }: Pick<Deps, 'fetch' | 'timing'>) {
   const deadline = Date.now() + timing.budgetMs
+  /** What is left of the budget; at 0 or less it has run out. */
+  const left = () => deadline - Date.now()
 
   /**
    * One GET within the per-request cap and what is left of the budget; a
@@ -197,15 +199,15 @@ export async function verify(baseUrl: string, sha: string, { fetch, timing }: Pi
    * the budget ran out comes back as `error`.
    */
   async function get(path: string): Promise<{ status: number, body: string } | { error: string }> {
-    const left = deadline - Date.now()
-    if (left <= 0)
+    const cap = Math.min(timing.timeoutMs, left())
+    if (cap <= 0)
       return { error: 'not sent, the budget had run out' }
     try {
-      const signal = AbortSignal.timeout(Math.min(timing.timeoutMs, left))
+      const signal = AbortSignal.timeout(cap)
       const res = await fetch(new URL(path, baseUrl), { signal })
       const body = await res.text()
       // the signal is a request to stop, not a guarantee the answer came in time
-      if (Date.now() > deadline)
+      if (left() <= 0)
         return { error: `HTTP ${res.status}, after the budget had run out` }
       return { status: res.status, body }
     }
@@ -219,15 +221,16 @@ export async function verify(baseUrl: string, sha: string, { fetch, timing }: Pi
   /**
    * Waits out the interval, or fails once the budget cannot cover another
    * attempt. Checked again after the wait, which can overrun on a busy
-   * runner, so the failure always names what was last seen.
+   * runner, so that the failure names the last answer and not a request
+   * that was never sent.
    */
   async function retry(step: string, last: string) {
     console.info(`  ${step}: ${last}; retrying`)
     const spent = () => new Error(`${step}: still failing when the ${timing.budgetMs / 1000}s budget ran out (last: ${last})`)
-    if (deadline - Date.now() <= timing.intervalMs)
+    if (left() <= timing.intervalMs)
       throw spent()
     await sleep(timing.intervalMs)
-    if (deadline - Date.now() <= 0)
+    if (left() <= 0)
       throw spent()
   }
 
@@ -280,11 +283,15 @@ export async function verify(baseUrl: string, sha: string, { fetch, timing }: Pi
     await read(`/api/post/${encodeURIComponent(first.slug)}`, OnePost)
 
     const { commit, last } = await reportedCommit()
-    if (commit === sha) {
+    // the only way out with a success: reading the answer takes time too,
+    // so the budget is checked once more right here
+    if (commit === sha && left() > 0) {
       console.info(`Verified ${sha} at ${baseUrl}: /health, ${posts.length} posts, categories, /api/post/${first.slug}.`)
       return
     }
-    await retry('/health after the reads', last)
+    await retry('/health after the reads', commit === sha
+      ? `${last}, after the budget had run out`
+      : last)
   }
 }
 
