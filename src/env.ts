@@ -18,7 +18,9 @@ const EnvSchema = z.object({
     .enum(['development', 'production', 'test'])
     .default('production'),
 
-  // Neon connection string (Worker secret in production, .dev.vars locally)
+  // Neon connection string (a Worker secret) in production; locally, in
+  // .dev.vars, the content engine's local database on 127.0.0.1 or a Neon
+  // branch (see sqlEndpoint in src/db/connector.ts)
   DATABASE_URL: z
     .string()
     .min(1, 'DATABASE_URL is required')
