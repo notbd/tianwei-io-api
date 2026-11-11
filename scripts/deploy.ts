@@ -316,7 +316,7 @@ function messageOf(error: unknown): string {
 const DEFAULT_TIMING: Timing = { budgetMs: 90_000, intervalMs: 3_000, timeoutMs: 10_000 }
 
 /**
- * Production timing, which the local rehearsal shortens through
+ * Production timing, which a manual `verify` run can shorten through
  * DEPLOY_VERIFY_BUDGET_MS, DEPLOY_VERIFY_INTERVAL_MS and
  * DEPLOY_VERIFY_TIMEOUT_MS. They can only shorten it; CI never sets them.
  */
