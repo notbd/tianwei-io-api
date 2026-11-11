@@ -23,7 +23,7 @@ const failed: Result = { code: 1, stdout: '' }
 
 /**
  * What `wrangler deployments status --json` prints (wrangler 4.156,
- * cli.js:362048-362050): the API's latest deployment object, whole.
+ * cli.js:362049-362052): the API's latest deployment object, whole.
  */
 function statusJson(...versions: [id: string, percentage: number][]) {
   return JSON.stringify({
@@ -268,7 +268,7 @@ describe('restore', () => {
       },
       'wrangler rollback exited with code 1',
     ],
-    // a declined confirmation: wrangler cancels and still exits 0 (cli.js:362257-362262)
+    // a declined confirmation: wrangler cancels and still exits 0 (wrangler 4.156, cli.js:362256-362263)
     [
       'the rollback exits 0 but the version did not change',
       {
