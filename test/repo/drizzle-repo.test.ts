@@ -93,8 +93,8 @@ describe('fetchPosts', () => {
     expect(rows[0]).not.toHaveProperty('isPublished')
   })
 
-  it('includes drafts when ignorePublishStatus is set', async () => {
-    const rows = await repo.fetchPosts({ ignorePublishStatus: true })
+  it('includes drafts when includeDrafts is set', async () => {
+    const rows = await repo.fetchPosts({ includeDrafts: true })
     expect(rows.map(row => row.slug)).toEqual([
       'unpublished-draft',
       'published-new',
@@ -123,7 +123,7 @@ describe('fetchPostBySlug', () => {
 
   it('hides unpublished posts by default, reveals them when asked', async () => {
     expect(await repo.fetchPostBySlug('unpublished-draft')).toBeNull()
-    const draft = await repo.fetchPostBySlug('unpublished-draft', { ignorePublishStatus: true })
+    const draft = await repo.fetchPostBySlug('unpublished-draft', { includeDrafts: true })
     expect(draft?.slug).toBe('unpublished-draft')
   })
 })

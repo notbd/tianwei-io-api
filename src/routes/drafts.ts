@@ -15,7 +15,7 @@ const draftsRoutes = new Hono<AppEnv>()
 draftsRoutes.get('/__dev/posts', async (c) => {
   if (c.get('env').NODE_ENV !== 'development')
     return c.notFound()
-  const posts = await c.get('repo').fetchPosts({ ignorePublishStatus: true }).catch(failWith('Failed to fetch posts.'))
+  const posts = await c.get('repo').fetchPosts({ includeDrafts: true }).catch(failWith('Failed to fetch posts.'))
   return apiRes.list(c, posts)
 })
 
@@ -36,7 +36,7 @@ const previewAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
 
 draftsRoutes.get('/__preview/post/:slug', previewAuth, validSlug, async (c) => {
   const { slug } = c.req.valid('param')
-  const post = await c.get('repo').fetchPostBySlug(slug, { ignorePublishStatus: true }).catch(failWith('Failed to fetch post.'))
+  const post = await c.get('repo').fetchPostBySlug(slug, { includeDrafts: true }).catch(failWith('Failed to fetch post.'))
   return post
     ? apiRes.ok(c, post)
     : apiRes.err(c, 'Post not found.', 404)

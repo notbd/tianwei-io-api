@@ -1,4 +1,4 @@
-import type { FetchPostsConfig, Post, PostsRepo } from '@/lib/repo'
+import type { Post, PostsRepo, ReadOptions } from '@/lib/repo'
 
 // Dates are ET midnight, as the content engine stores them
 // (T05:00Z while EST is in effect, T04:00Z under EDT).
@@ -47,36 +47,30 @@ function toSummary(post: Post) {
 }
 
 /**
- * In-memory PostsRepo mirroring the real repo's visibility semantics.
- * Records the configs it was called with so tests can assert wiring.
+ * In-memory PostsRepo mirroring the real repo's visibility rule.
+ * Records the options fetchPosts was called with so tests can assert wiring.
  */
 export function createFakeRepo(posts: Post[] = FIXTURE_POSTS) {
-  const calls: { fetchPosts: FetchPostsConfig[] } = { fetchPosts: [] }
+  const calls: { fetchPosts: ReadOptions[] } = { fetchPosts: [] }
+  const visible = ({ includeDrafts = false }: ReadOptions = {}) =>
+    (post: Post) => includeDrafts || post.isPublished
 
   const repo: PostsRepo = {
-    async fetchPosts(config = {}) {
-      calls.fetchPosts.push(config)
-      const visible = config.ignorePublishStatus === true
-        ? posts
-        : posts.filter(post => post.isPublished)
-      return visible
-        .slice()
+    async fetchPosts(options = {}) {
+      calls.fetchPosts.push(options)
+      return posts
+        .filter(visible(options))
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id)
         .map(toSummary)
     },
 
-    async fetchPostBySlug(slug, config = {}) {
-      const post = posts.find(candidate => candidate.slug === slug)
-      if (!post)
-        return null
-      if (!config.ignorePublishStatus && !post.isPublished)
-        return null
-      return post
+    async fetchPostBySlug(slug, options) {
+      return posts.find(post => post.slug === slug && visible(options)(post)) ?? null
     },
 
     async fetchCategories() {
       return [
-        ...new Set(posts.filter(post => post.isPublished).map(post => post.category)),
+        ...new Set(posts.filter(visible()).map(post => post.category)),
       ].sort()
     },
   }

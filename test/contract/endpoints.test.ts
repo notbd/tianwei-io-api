@@ -200,7 +200,7 @@ describe('/api/__dev/posts', () => {
     expect(body.count).toBe(3)
     expect(body.data.map(row => row.slug)).toContain('draft-post')
     expect(calls.fetchPosts).toEqual([
-      { ignorePublishStatus: true },
+      { includeDrafts: true },
     ])
   })
 
