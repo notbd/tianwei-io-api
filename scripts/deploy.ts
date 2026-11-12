@@ -30,7 +30,7 @@ export type Wrangler = (args: string[], options?: { capture?: boolean }) => Prom
 
 export type Fetch = (url: URL, init: { signal: AbortSignal }) => Promise<Response>
 
-/** Verification timing: total budget, pause between attempts, cap per request (body included). */
+/** Verification timing: how long passes may start, pause between passes, cap per request (body included). */
 export type Timing = { budgetMs: number, intervalMs: number, timeoutMs: number }
 
 export type Deps = {
@@ -176,122 +176,83 @@ const onePostSchema = z.object({
   }),
 })
 
+/** A failure that may pass a moment later: the pass runs again from the top. */
+class Retry extends Error {}
+
 /**
- * Waits for /health to report `sha`, then reads the list, the categories and
- * the first post (the full row, so every column the API selects), then
- * confirms /health still reports `sha`; if it does not, starts over. Network
- * errors and 5xx are retried within the budget (the database may be waking
- * up); a 4xx, a wrong envelope or an empty list fail at once.
+ * One pass: /health reports `sha`, the list, the categories and the first
+ * post (the full row, so every column the API selects) are read, and /health
+ * still reports `sha`. A pass that meets a network error, a timeout, a 5xx
+ * or another answer from /health (the database may be waking up, or the new
+ * version is not serving yet) runs again from the top after the interval; a
+ * 4xx, a wrong envelope or an empty list fail at once.
  *
- * The budget is a hard limit on every path: no request is sent once it has
- * run out, an answer that arrives after it does not count, success is only
- * reported while some of it is left, and every way back to an earlier step
- * goes through `retry`, which waits out the interval or fails.
+ * The budget decides one thing: no pass starts once it has run out. A pass
+ * under way runs to its end, so verify can outlast the budget by one pass
+ * (five requests, each within the per-request cap) and the wait after it.
  */
 export async function verify(baseUrl: string, sha: string, { fetch, timing }: Pick<Deps, 'fetch' | 'timing'>) {
   const deadline = Date.now() + timing.budgetMs
-  /** What is left of the budget; at 0 or less it has run out. */
-  const left = () => deadline - Date.now()
 
-  /**
-   * One GET, given the per-request cap or what is left of the budget,
-   * whichever is less; a network error, a timeout, a spent budget or an
-   * answer that came after the budget ran out comes back as `error`.
-   */
-  async function get(path: string): Promise<{ status: number, body: string } | { error: string }> {
-    const budgetLeft = left()
-    if (budgetLeft <= 0)
-      return { error: 'not sent, the budget had run out' }
+  async function get(path: string) {
     try {
-      const signal = AbortSignal.timeout(Math.min(timing.timeoutMs, budgetLeft))
+      const signal = AbortSignal.timeout(timing.timeoutMs)
       const res = await fetch(new URL(path, baseUrl), { signal })
-      const body = await res.text()
-      // the signal is a request to stop, not a guarantee the answer came in time
-      if (left() <= 0)
-        return { error: `HTTP ${res.status}, after the budget had run out` }
-      return { status: res.status, body }
+      return { status: res.status, body: await res.text() }
     }
     catch (error) {
-      return {
-        error: messageOf(error),
-      }
+      throw new Retry(`GET ${path}: ${messageOf(error)}`)
     }
-  }
-
-  /**
-   * Waits out the interval, or fails once the budget cannot cover another
-   * attempt. Checked again after the wait, which can overrun on a busy
-   * runner, so that the failure names the last answer and not a request
-   * that was never sent.
-   */
-  async function retry(step: string, last: string) {
-    const spent = () => new Error(`${step}: still failing when the ${timing.budgetMs / 1000}s budget ran out (last: ${last})`)
-    if (left() <= timing.intervalMs)
-      throw spent()
-    console.info(`  ${step}: ${last}; retrying`)
-    await sleep(timing.intervalMs)
-    if (left() <= 0)
-      throw spent()
-  }
-
-  async function reportedCommit() {
-    const reply = await get('/health')
-    if ('error' in reply)
-      return { last: reply.error }
-    const health = reply.status === 200
-      ? healthSchema.safeParse(parseJson(reply.body))
-      : undefined
-    return health?.success
-      ? { commit: health.data.commit, last: `commit ${health.data.commit ?? '(none)'}` }
-      : { last: `HTTP ${reply.status}` }
   }
 
   async function read<T>(path: string, schema: z.ZodType<T>) {
-    const step = `GET ${path}`
-    for (;;) {
-      const reply = await get(path)
-      if ('error' in reply) {
-        await retry(step, reply.error)
-        continue
-      }
-      if (reply.status >= 500) {
-        await retry(step, `HTTP ${reply.status}`)
-        continue
-      }
-      if (reply.status !== 200)
-        throw new Error(`${step}: HTTP ${reply.status}, not retried: ${reply.body.slice(0, 200)}`)
-      const parsed = schema.safeParse(parseJson(reply.body))
-      if (!parsed.success)
-        throw new Error(`${step}: not a success envelope, not retried: ${reply.body.slice(0, 200)}`)
-      return parsed.data
-    }
+    const { status, body } = await get(path)
+    if (status >= 500)
+      throw new Retry(`GET ${path}: HTTP ${status}`)
+    if (status !== 200)
+      throw new Error(`GET ${path}: HTTP ${status}, not retried: ${body.slice(0, 200)}`)
+    const parsed = schema.safeParse(parseJson(body))
+    if (!parsed.success)
+      throw new Error(`GET ${path}: not a success envelope, not retried: ${body.slice(0, 200)}`)
+    return parsed.data
   }
 
-  for (;;) {
-    for (;;) {
-      const { commit, last } = await reportedCommit()
-      if (commit === sha)
-        break
-      await retry(`/health (waiting for commit ${sha})`, last)
-    }
+  async function expectCommit() {
+    const { status, body } = await get('/health')
+    const health = healthSchema.safeParse(parseJson(body))
+    if (status !== 200 || !health.success)
+      throw new Retry(`GET /health: HTTP ${status}`)
+    if (health.data.commit !== sha)
+      throw new Retry(`GET /health: commit ${health.data.commit ?? '(none)'}, not ${sha}`)
+  }
 
+  async function pass() {
+    await expectCommit()
     const { data: posts } = await read('/api/posts', postListSchema)
     const [first] = posts
     if (!first)
       throw new Error('GET /api/posts: listed 0 posts')
     await read('/api/categories', categoryListSchema)
     await read(`/api/post/${encodeURIComponent(first.slug)}`, onePostSchema)
+    await expectCommit()
+    return `/health, ${posts.length} posts, categories, /api/post/${first.slug}`
+  }
 
-    const { commit, last } = await reportedCommit()
-    // the only way out with a success: reading the answer takes time too,
-    // so the budget is checked once more right here
-    if (commit === sha && left() > 0) {
-      console.info(`Verified ${sha} at ${baseUrl}: /health, ${posts.length} posts, categories, /api/post/${first.slug}.`)
+  for (;;) {
+    try {
+      console.info(`Verified ${sha} at ${baseUrl}: ${await pass()}.`)
       return
     }
-    await retry('/health after the reads', commit === sha
-      ? `${last}, after the budget had run out`
-      : last)
+    catch (error) {
+      if (!(error instanceof Retry))
+        throw error
+      console.info(`  ${error.message}`)
+      await sleep(timing.intervalMs)
+      // checked after the wait, which can overrun on a busy runner: no pass
+      // starts past the deadline, and the failure names the last real answer
+      if (Date.now() >= deadline)
+        throw new Error(`Not verified within ${timing.budgetMs / 1000}s (last: ${error.message})`)
+    }
   }
 }
 
@@ -313,29 +274,7 @@ function messageOf(error: unknown): string {
     : error.message
 }
 
-const DEFAULT_TIMING: Timing = { budgetMs: 90_000, intervalMs: 3_000, timeoutMs: 10_000 }
-
-/**
- * Production timing, which a manual `verify` run can shorten through
- * DEPLOY_VERIFY_BUDGET_MS, DEPLOY_VERIFY_INTERVAL_MS and
- * DEPLOY_VERIFY_TIMEOUT_MS. They can only shorten it; CI never sets them.
- */
-function timingFromEnv(env: NodeJS.ProcessEnv): Timing {
-  const ms = (name: string, max: number) => {
-    const value = env[name]
-    if (value === undefined)
-      return max
-    const parsed = Number(value)
-    if (!Number.isInteger(parsed) || parsed < 1 || parsed > max)
-      throw new Error(`${name}=${value}: expected whole milliseconds from 1 to ${max}`)
-    return parsed
-  }
-  return {
-    budgetMs: ms('DEPLOY_VERIFY_BUDGET_MS', DEFAULT_TIMING.budgetMs),
-    intervalMs: ms('DEPLOY_VERIFY_INTERVAL_MS', DEFAULT_TIMING.intervalMs),
-    timeoutMs: ms('DEPLOY_VERIFY_TIMEOUT_MS', DEFAULT_TIMING.timeoutMs),
-  }
-}
+const TIMING: Timing = { budgetMs: 90_000, intervalMs: 3_000, timeoutMs: 10_000 }
 
 const USAGE = `Usage:
   node scripts/deploy.ts check
@@ -361,7 +300,7 @@ async function main([command, ...args]: string[]) {
       wrangler: runWrangler,
       fetch,
       stateFile: stateFile(),
-      timing: timingFromEnv(process.env),
+      timing: TIMING,
     })
   }
   if (command === 'restore' && args.length === 0) {
@@ -373,7 +312,7 @@ async function main([command, ...args]: string[]) {
   if (command === 'verify' && args.length === 2 && first !== '' && second !== '') {
     return verify(first, second, {
       fetch,
-      timing: timingFromEnv(process.env),
+      timing: TIMING,
     })
   }
   console.error(USAGE)
