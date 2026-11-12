@@ -10,8 +10,8 @@ import { z } from 'zod'
 // ---------------------------------------------------------------------------
 
 const envSchema = z.object({
-  // Runtime environment: controls dev-only routes and request logging;
-  // /health reports it as `env`.
+  // Runtime environment: controls the dev-only route; /health reports it
+  // as `env`.
   // Defaults to PRODUCTION: this value gates the drafts-exposing __dev route,
   // so a missing binding must fail closed (.dev.vars sets it explicitly).
   NODE_ENV: z

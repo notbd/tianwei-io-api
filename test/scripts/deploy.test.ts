@@ -344,18 +344,18 @@ describe('verify', () => {
     const api = fakeApi({
       '/health': () => Response.json({ status: 'ok', env: 'production', commit: OLD_SHA }),
     })
-    // after three requests, 1 ms of the 1 s budget is left
+    // the third request ends past the 1 s budget
     await expect(verify('https://api.example.test', SHA, {
-      fetch: taking(333, api.fetch),
+      fetch: taking(334, api.fetch),
       timing,
     }))
       .rejects
-      .toThrow(`/health (waiting for commit ${SHA}): still failing when the 1s budget ran out (last: commit ${OLD_SHA})`)
+      .toThrow(`Not verified within 1s (last: GET /health: commit ${OLD_SHA}, not ${SHA})`)
     expect(api.attempts['/health']).toBe(3)
     expect(api.attempts['/api/posts']).toBeUndefined()
   })
 
-  it('retries a 5xx, a network error and a hung request', async () => {
+  it('runs the pass again from the top after a 5xx, a network error and a hung request', async () => {
     const api = fakeApi({
       '/api/categories': attempt => (attempt === 1
         ? serverError()
@@ -372,20 +372,24 @@ describe('verify', () => {
       },
     })
     await verify('https://api.example.test', SHA, { fetch: api.fetch, timing })
-    expect(api.attempts['/api/categories']).toBe(2)
-    expect(api.attempts['/api/post/first%20post']).toBe(3)
+    expect(api.attempts).toEqual({
+      '/health': 5,
+      '/api/posts': 4,
+      '/api/categories': 4,
+      '/api/post/first%20post': 3,
+    })
   })
 
   it('fails when an endpoint keeps answering 5xx', async () => {
     const api = fakeApi({ '/api/categories': serverError })
-    // after five requests, 5 ms of the 1 s budget is left: not enough for another wait
+    // three requests a pass: the second pass ends past the 1 s budget
     await expect(verify('https://api.example.test', SHA, {
       fetch: taking(199, api.fetch),
       timing,
     }))
       .rejects
-      .toThrow('GET /api/categories: still failing when the 1s budget ran out (last: HTTP 500)')
-    expect(api.attempts['/api/categories']).toBe(3)
+      .toThrow('Not verified within 1s (last: GET /api/categories: HTTP 500)')
+    expect(api.attempts['/api/categories']).toBe(2)
   })
 
   it.each([
@@ -430,7 +434,7 @@ describe('verify', () => {
 
   it('fails when /health keeps falling back after the reads until the budget runs out', async () => {
     // the new commit before the reads, the previous one after them, for 50
-    // rounds: more than the budget covers, and finite so that a verify
+    // passes: more than the budget covers, and finite so that a verify
     // without the limit ends too (by passing)
     const api = fakeApi({
       '/health': attempt => Response.json({
@@ -441,118 +445,50 @@ describe('verify', () => {
           : OLD_SHA,
       }),
     })
-    // the first request takes 5 ms and the others 10 ms each, so the
-    // twentieth round ends 5 ms short of the 1 s budget; at 10 ms each it
-    // would end exactly on it, and the failure would name a late answer
-    const fetch: Fetch = async (url, init) => {
-      clock.now += clock.now === 0
-        ? 5
-        : 10
-      return api.fetch(url, init)
-    }
-    await expect(verify('https://api.example.test', SHA, { fetch, timing }))
+    // five requests a pass at 10 ms each: the twentieth pass ends the 1 s budget
+    await expect(verify('https://api.example.test', SHA, {
+      fetch: taking(10, api.fetch),
+      timing,
+    }))
       .rejects
-      .toThrow(`/health after the reads: still failing when the 1s budget ran out (last: commit ${OLD_SHA})`)
-    // five requests a round: the budget covers twenty rounds and no wait after them
+      .toThrow(`Not verified within 1s (last: GET /health: commit ${OLD_SHA}, not ${SHA})`)
     expect(api.attempts['/api/posts']).toBe(20)
     expect(api.attempts['/health']).toBe(40)
   })
 
-  describe('at the end of the budget', () => {
-    /**
-     * The first four requests take 100 ms each and the fifth, the last
-     * /health, ends at `lastEndsAt` of the 1 s budget.
-     */
-    function lastHealthEndingAt(lastEndsAt: number) {
-      const api = fakeApi()
-      let sent = 0
-      const fetch: Fetch = async (url, init) => {
-        sent += 1
-        clock.now = sent === 5
-          ? lastEndsAt
-          : clock.now + 100
-        return api.fetch(url, init)
-      }
-      return { api, fetch }
-    }
-
-    /** Makes reading an answer that ended at `from` last until `to`. */
-    function parsingTakes(from: number, to: number) {
-      const parse = JSON.parse
-      vi.spyOn(JSON, 'parse').mockImplementation((text) => {
-        if (clock.now === from)
-          clock.now = to
-        const value: unknown = parse(text)
-        return value
+  it('starts no pass when the wait uses up the budget, and names the last answer', async () => {
+    // reading the answer starts a 1 ms timer that moves the clock to the end
+    // of the budget; verify yields to timers only at its 5 ms wait, so the
+    // clock jumps during that wait
+    const api = fakeApi({
+      '/health': () => Response.json({ status: 'ok', env: 'production', commit: OLD_SHA }),
+    })
+    const fetch: Fetch = async (url, init) => {
+      const res = await api.fetch(url, init)
+      const body = await res.text()
+      return Object.assign(res, {
+        text: async () => {
+          setTimeout(() => {
+            clock.now = 1_000
+          }, 1)
+          return body
+        },
       })
     }
+    await expect(verify('https://api.example.test', SHA, { fetch, timing }))
+      .rejects
+      .toThrow(`Not verified within 1s (last: GET /health: commit ${OLD_SHA}, not ${SHA})`)
+    expect(api.attempts).toEqual({ '/health': 1 })
+  })
 
-    it('counts a last answer that arrives before the budget runs out', async () => {
-      const { api, fetch } = lastHealthEndingAt(999)
-      await verify('https://api.example.test', SHA, { fetch, timing })
-      expect(api.attempts['/health']).toBe(2)
+  it('lets a pass under way run to its end past the budget', async () => {
+    const api = fakeApi()
+    // five requests at 400 ms each: the pass starts inside the 1 s budget and ends at 2 s
+    await verify('https://api.example.test', SHA, {
+      fetch: taking(400, api.fetch),
+      timing,
     })
-
-    it.each([
-      ['exactly when', 1_000],
-      ['after', 1_200],
-    ])('does not count a last answer that arrives %s the budget runs out', async (_, lastEndsAt) => {
-      const { api, fetch } = lastHealthEndingAt(lastEndsAt)
-      await expect(verify('https://api.example.test', SHA, { fetch, timing }))
-        .rejects
-        .toThrow('/health after the reads: still failing when the 1s budget ran out (last: HTTP 200, after the budget had run out)')
-      expect(api.attempts['/health']).toBe(2)
-    })
-
-    it('does not report success when reading the last answer uses up the budget', async () => {
-      const { api, fetch } = lastHealthEndingAt(999)
-      parsingTakes(999, 1_000)
-      await expect(verify('https://api.example.test', SHA, { fetch, timing }))
-        .rejects
-        .toThrow(`/health after the reads: still failing when the 1s budget ran out (last: commit ${SHA}, after the budget had run out)`)
-      expect(api.attempts['/health']).toBe(2)
-    })
-
-    it('names the last answer when a wait uses up the budget', async () => {
-      // reading the answer starts a 1 ms timer that moves the clock to the end
-      // of the budget; verify yields to timers only at its 5 ms wait, so the
-      // clock jumps during that wait
-      const api = fakeApi({
-        '/health': () => Response.json({ status: 'ok', env: 'production', commit: OLD_SHA }),
-      })
-      const fetch: Fetch = async (url, init) => {
-        const res = await api.fetch(url, init)
-        const body = await res.text()
-        return Object.assign(res, {
-          text: async () => {
-            setTimeout(() => {
-              clock.now = 1_000
-            }, 1)
-            return body
-          },
-        })
-      }
-      await expect(verify('https://api.example.test', SHA, { fetch, timing }))
-        .rejects
-        .toThrow(`/health (waiting for commit ${SHA}): still failing when the 1s budget ran out (last: commit ${OLD_SHA})`)
-      expect(api.attempts['/health']).toBe(1)
-    })
-
-    it('sends no request once the budget has run out', async () => {
-      // the second request, the list, ends at 999 ms and reading it ends exactly when the budget does
-      parsingTakes(999, 1_000)
-      const api = fakeApi()
-      const fetch: Fetch = async (url, init) => {
-        clock.now = url.pathname === '/api/posts'
-          ? 999
-          : clock.now + 100
-        return api.fetch(url, init)
-      }
-      await expect(verify('https://api.example.test', SHA, { fetch, timing }))
-        .rejects
-        .toThrow('GET /api/categories: still failing when the 1s budget ran out (last: not sent, the budget had run out)')
-      expect(api.attempts['/api/posts']).toBe(1)
-      expect(api.attempts['/api/categories']).toBeUndefined()
-    })
+    expect(clock.now).toBe(2_000)
+    expect(api.attempts['/health']).toBe(2)
   })
 })
