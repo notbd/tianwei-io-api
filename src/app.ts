@@ -3,7 +3,6 @@ import type { PostsRepo } from '@/lib/repo'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { HTTPException } from 'hono/http-exception'
-import { logger } from 'hono/logger'
 import { getDB } from '@/db/connector'
 import { parseEnv } from '@/env'
 import { createDrizzleRepo } from '@/lib/repo'
@@ -20,8 +19,8 @@ export type CreateAppOptions = {
  * Build the Worker's Hono app.
  *
  * Workers has no boot phase: configuration arrives per request (`c.env`),
- * so env validation, CORS, and the dev-only logging and routes are decided
- * per request, memoized where it matters.
+ * so env validation, CORS and the dev-only route are decided per request,
+ * memoized where it matters.
  */
 export function createApp(options: CreateAppOptions = {}) {
   const app = new Hono<AppEnv>()
@@ -34,13 +33,6 @@ export function createApp(options: CreateAppOptions = {}) {
     c.set('env', env)
     c.set('repo', options.repo ?? createDrizzleRepo(getDB(env.DATABASE_URL)))
     await next()
-  })
-
-  // Request logging (development only for cleaner prod logs)
-  app.use('*', async (c, next) => {
-    if (c.get('env').NODE_ENV === 'development')
-      return logger()(c, next)
-    return next()
   })
 
   // CORS - only applied if ALLOWED_ORIGINS is configured.

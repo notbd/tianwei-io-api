@@ -36,7 +36,7 @@ export default antfu(
 
   {
     // Hono types a middleware's context input as `any`, so handing `c` on to
-    // logger() and cors() trips this rule although no untyped value flows.
+    // cors() trips this rule although no untyped value flows.
     files: ['src/app.ts'],
     rules: {
       'ts/no-unsafe-argument': 'off',
