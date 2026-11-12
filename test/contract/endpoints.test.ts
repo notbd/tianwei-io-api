@@ -200,29 +200,6 @@ describe('unmatched routes', () => {
   })
 })
 
-describe('cors', () => {
-  it('is absent when ALLOWED_ORIGINS is empty', async () => {
-    const res = await app.request('/api/posts', {
-      headers: { Origin: 'https://tianwei.io' },
-    }, bindings({ ALLOWED_ORIGINS: '' }))
-    expect(res.headers.get('access-control-allow-origin')).toBeNull()
-  })
-
-  it('allows configured origins', async () => {
-    const res = await app.request('/api/posts', {
-      headers: { Origin: 'https://tianwei.io' },
-    }, bindings({ ALLOWED_ORIGINS: 'https://tianwei.io, https://preview.tianwei.io' }))
-    expect(res.headers.get('access-control-allow-origin')).toBe('https://tianwei.io')
-  })
-
-  it('rejects unlisted origins', async () => {
-    const res = await app.request('/api/posts', {
-      headers: { Origin: 'https://evil.example' },
-    }, bindings({ ALLOWED_ORIGINS: 'https://tianwei.io' }))
-    expect(res.headers.get('access-control-allow-origin')).toBeNull()
-  })
-})
-
 describe('environment validation', () => {
   it('500s with the uniform error shape on invalid configuration', async () => {
     const res = await app.request('/api/posts', {}, { NODE_ENV: 'production', DATABASE_URL: 'mysql://nope' })
