@@ -85,10 +85,11 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       # Puts the saved version back if a different one is live. Runs only
-      # when the release step itself failed or was cancelled: a job that
-      # stopped before it deployed nothing, and one cancelled after it holds
-      # a verified version. Without a status function the condition would
-      # imply success() and never run. The job stays red either way.
+      # when the release step itself failed or was cancelled. A job that
+      # stopped before the release step has deployed nothing, and one
+      # cancelled after it holds a verified version, so neither needs it.
+      # Without a status function the condition would imply success() and
+      # never run. The job stays red either way.
       - name: Restore the previous version
         if: (failure() || cancelled()) && (steps.release.outcome == 'failure' || steps.release.outcome == 'cancelled')
         run: node scripts/deploy.ts restore
