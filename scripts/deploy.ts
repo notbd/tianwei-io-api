@@ -75,7 +75,7 @@ export async function check(wrangler: Wrangler) {
 // The latest deployment as Cloudflare's API returns it; `deployments status
 // --json` prints it whole (it also holds the account email, so it is
 // captured, never logged).
-const Deployment = z.object({
+const deploymentSchema = z.object({
   versions: z.array(z.object({
     version_id: z.string(),
     percentage: z.number(),
@@ -87,7 +87,7 @@ export async function liveVersion(wrangler: Wrangler) {
   const { code, stdout } = await wrangler(['deployments', 'status', '--json'], { capture: true })
   if (code !== 0)
     throw new Error(`wrangler deployments status exited with code ${code}`)
-  const deployment = Deployment.safeParse(parseJson(stdout))
+  const deployment = deploymentSchema.safeParse(parseJson(stdout))
   if (!deployment.success)
     throw new Error('wrangler deployments status did not print a deployment as JSON')
   const { versions } = deployment.data
@@ -156,20 +156,20 @@ export async function restore({ wrangler, stateFile }: Pick<Deps, 'wrangler' | '
   console.info(`Rolled back: ${saved} is live again.`)
 }
 
-const Health = z.object({
+const healthSchema = z.object({
   commit: z.string().optional(),
 })
-const PostList = z.object({
+const postListSchema = z.object({
   status: z.literal('success'),
   data: z.array(z.object({
     slug: z.string(),
   })),
 })
-const CategoryList = z.object({
+const categoryListSchema = z.object({
   status: z.literal('success'),
   data: z.array(z.string()),
 })
-const OnePost = z.object({
+const onePostSchema = z.object({
   status: z.literal('success'),
   data: z.object({
     slug: z.string(),
@@ -239,7 +239,7 @@ export async function verify(baseUrl: string, sha: string, { fetch, timing }: Pi
     if ('error' in reply)
       return { last: reply.error }
     const health = reply.status === 200
-      ? Health.safeParse(parseJson(reply.body))
+      ? healthSchema.safeParse(parseJson(reply.body))
       : undefined
     return health?.success
       ? { commit: health.data.commit, last: `commit ${health.data.commit ?? '(none)'}` }
@@ -275,12 +275,12 @@ export async function verify(baseUrl: string, sha: string, { fetch, timing }: Pi
       await retry(`/health (waiting for commit ${sha})`, last)
     }
 
-    const { data: posts } = await read('/api/posts', PostList)
+    const { data: posts } = await read('/api/posts', postListSchema)
     const [first] = posts
     if (!first)
       throw new Error('GET /api/posts: listed 0 posts')
-    await read('/api/categories', CategoryList)
-    await read(`/api/post/${encodeURIComponent(first.slug)}`, OnePost)
+    await read('/api/categories', categoryListSchema)
+    await read(`/api/post/${encodeURIComponent(first.slug)}`, onePostSchema)
 
     const { commit, last } = await reportedCommit()
     // the only way out with a success: reading the answer takes time too,
@@ -316,7 +316,7 @@ function messageOf(error: unknown): string {
 const DEFAULT_TIMING: Timing = { budgetMs: 90_000, intervalMs: 3_000, timeoutMs: 10_000 }
 
 /**
- * Production timing, which the local rehearsal shortens through
+ * Production timing, which a manual `verify` run can shorten through
  * DEPLOY_VERIFY_BUDGET_MS, DEPLOY_VERIFY_INTERVAL_MS and
  * DEPLOY_VERIFY_TIMEOUT_MS. They can only shorten it; CI never sets them.
  */

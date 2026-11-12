@@ -91,7 +91,7 @@ describe('fetchPosts', () => {
       updatedAt: new Date('2025-11-05T05:00:00.000Z'),
     })
     // updatedAt is nullable: absent means "never updated"
-    expect(rows[2]!.updatedAt).toBeNull()
+    expect(rows[2]?.updatedAt).toBeNull()
   })
 
   it('includes drafts when includeDrafts is set', async () => {
@@ -114,8 +114,8 @@ describe('fetchPostBySlug', () => {
       description: null,
       isPublished: true,
       content: 'old content',
+      createdAt: new Date('2024-04-15T04:00:00.000Z'),
     })
-    expect(post!.createdAt).toEqual(new Date('2024-04-15T04:00:00.000Z'))
   })
 
   it('returns null for a missing slug', async () => {

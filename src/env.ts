@@ -9,7 +9,7 @@ import { z } from 'zod'
 // bindings object (stable for the lifetime of an isolate).
 // ---------------------------------------------------------------------------
 
-const EnvSchema = z.object({
+const envSchema = z.object({
   // Runtime environment: controls dev-only routes and request logging;
   // /health reports it as `env`.
   // Defaults to PRODUCTION: this value gates the drafts-exposing __dev route,
@@ -18,7 +18,9 @@ const EnvSchema = z.object({
     .enum(['development', 'production', 'test'])
     .default('production'),
 
-  // Neon connection string (Worker secret in production, .dev.vars locally)
+  // Neon connection string (a Worker secret) in production; locally, in
+  // .dev.vars, the content engine's local database on 127.0.0.1 or a Neon
+  // branch (see sqlEndpoint in src/db/connector.ts)
   DATABASE_URL: z
     .string()
     .min(1, 'DATABASE_URL is required')
@@ -55,7 +57,7 @@ const EnvSchema = z.object({
     .transform(val => val?.split(',').map(origin => origin.trim()).filter(Boolean) ?? []),
 })
 
-export type Env = z.infer<typeof EnvSchema>
+export type Env = z.infer<typeof envSchema>
 
 /** Raw bindings the Worker receives (wrangler.jsonc vars, secrets, .dev.vars): unvalidated strings. */
 export type WorkerBindings = Partial<Record<keyof Env, string>>
@@ -71,7 +73,7 @@ export function parseEnv(bindings: WorkerBindings): Env {
   if (cached)
     return cached
 
-  const parsed = EnvSchema.safeParse(bindings)
+  const parsed = envSchema.safeParse(bindings)
   if (!parsed.success) {
     console.error('Environment validation failed:', z.treeifyError(parsed.error))
     throw new Error('Invalid environment configuration')

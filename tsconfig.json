@@ -12,7 +12,9 @@
     // which run on Node, have their own program in test/tsconfig.json.
     "types": ["./worker-configuration.d.ts"],
     "strict": true,
+    "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
+    "noUncheckedSideEffectImports": true,
     "noEmit": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,

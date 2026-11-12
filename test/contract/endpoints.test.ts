@@ -69,13 +69,6 @@ describe('/api/posts', () => {
     })
   })
 
-  it('returns the exact 500 shape when the data layer fails', async () => {
-    const res = await failingApp.request('/api/posts', {}, bindings())
-    expect(res.status).toBe(500)
-    expect(await res.json()).toEqual({ status: 'error', message: 'Failed to fetch posts.' })
-    expect(res.headers.get('cache-control')).toBe('no-store')
-  })
-
   it('sets Cache-Control: no-store (frontend owns the only cache layer)', async () => {
     const res = await app.request('/api/posts', {}, bindings())
     expect(res.headers.get('cache-control')).toBe('no-store')
@@ -104,14 +97,11 @@ describe('/api/post/:slug', () => {
     })
   })
 
-  it('404s with the exact shape for a missing post', async () => {
-    const res = await app.request('/api/post/no-such-post', {}, bindings())
-    expect(res.status).toBe(404)
-    expect(await res.json()).toEqual({ status: 'error', message: 'Post not found.' })
-  })
-
-  it('404s for an unpublished post (drafts are invisible)', async () => {
-    const res = await app.request('/api/post/draft-post', {}, bindings())
+  it.each([
+    ['a missing post', 'no-such-post'],
+    ['an unpublished post (drafts are invisible)', 'draft-post'],
+  ])('404s with the exact shape for %s', async (_, slug) => {
+    const res = await app.request(`/api/post/${slug}`, {}, bindings())
     expect(res.status).toBe(404)
     expect(await res.json()).toEqual({ status: 'error', message: 'Post not found.' })
   })
@@ -140,12 +130,6 @@ describe('/api/post/:slug', () => {
       message: 'Validation failed: slug - Slug is too long',
     })
   })
-
-  it('returns the exact 500 shape when the data layer fails', async () => {
-    const res = await failingApp.request('/api/post/some-post', {}, bindings())
-    expect(res.status).toBe(500)
-    expect(await res.json()).toEqual({ status: 'error', message: 'Failed to fetch post.' })
-  })
 })
 
 describe('/api/categories', () => {
@@ -158,11 +142,18 @@ describe('/api/categories', () => {
       data: ['articles'],
     })
   })
+})
 
-  it('returns the exact 500 shape when the data layer fails', async () => {
-    const res = await failingApp.request('/api/categories', {}, bindings())
+describe('a failing data layer', () => {
+  it.each([
+    ['/api/posts', 'Failed to fetch posts.'],
+    ['/api/post/some-post', 'Failed to fetch post.'],
+    ['/api/categories', 'Failed to fetch categories.'],
+  ])('%s answers the exact 500 shape, uncached', async (path, message) => {
+    const res = await failingApp.request(path, {}, bindings())
     expect(res.status).toBe(500)
-    expect(await res.json()).toEqual({ status: 'error', message: 'Failed to fetch categories.' })
+    expect(await res.json()).toEqual({ status: 'error', message })
+    expect(res.headers.get('cache-control')).toBe('no-store')
   })
 })
 

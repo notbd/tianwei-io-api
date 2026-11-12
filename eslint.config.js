@@ -2,10 +2,6 @@ import antfu from '@antfu/eslint-config'
 
 export default antfu(
   {
-    stylistic: {
-      indent: 2,
-      quotes: 'single',
-    },
     // Type-aware rules. Each file is checked against its nearest tsconfig
     // (src: the Worker's; test/ and scripts/: their own). vitest.config.ts
     // belongs to test/tsconfig.json, which that lookup never reaches from the
@@ -27,6 +23,14 @@ export default antfu(
       ],
       // one way to declare object types (unions already need `type`), as in the web repo
       'ts/consistent-type-definitions': ['error', 'type'],
+    },
+  },
+
+  {
+    // a test asserts what it got instead of asserting it is there
+    files: ['test/**'],
+    rules: {
+      'ts/no-non-null-assertion': 'error',
     },
   },
 

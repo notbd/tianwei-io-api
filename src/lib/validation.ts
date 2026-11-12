@@ -7,7 +7,7 @@ import { apiRes } from '@/lib/responses'
  * Slug path parameter: lowercase alphanumeric, hyphens allowed but not
  * consecutive. The messages are part of the 400 the frontend maps to 404.
  */
-const slugParam = z.object({
+const slugParamSchema = z.object({
   slug: z
     .string()
     .min(1, 'Slug cannot be empty')
@@ -20,7 +20,7 @@ const slugParam = z.object({
 
 /** Validates `:slug`; a bad one gets a 400 naming the first failed rule. */
 export const validSlug = validator('param', (params, c) => {
-  const result = slugParam.safeParse(params)
+  const result = slugParamSchema.safeParse(params)
   if (result.success)
     return result.data
 

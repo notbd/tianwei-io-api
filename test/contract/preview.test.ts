@@ -38,30 +38,24 @@ describe('/api/__preview/post/:slug', () => {
     expect(await res.json()).toEqual({ status: 'error', message: 'Not Found' })
   })
 
-  it('401s without a token', async () => {
-    const res = await app.request('/api/__preview/post/draft-post', {}, previewBindings())
+  it.each([
+    ['no token', {}],
+    [
+      'a wrong token',
+      { Authorization: 'Bearer wrong-token-wrong-token' },
+    ],
+    [
+      'a token one character longer than the secret',
+      { Authorization: `Bearer ${SECRET}x` },
+    ],
+    [
+      'a token one character shorter than the secret',
+      { Authorization: `Bearer ${SECRET.slice(0, -1)}` },
+    ],
+  ])('401s with the exact shape for %s', async (_, headers) => {
+    const res = await app.request('/api/__preview/post/draft-post', { headers }, previewBindings())
     expect(res.status).toBe(401)
     expect(await res.json()).toEqual({ status: 'error', message: 'Unauthorized' })
-  })
-
-  it('401s with a wrong token', async () => {
-    const res = await app.request('/api/__preview/post/draft-post', {
-      headers: { Authorization: 'Bearer wrong-token-wrong-token' },
-    }, previewBindings())
-    expect(res.status).toBe(401)
-  })
-
-  it.each([
-    ['one character longer', `${SECRET}x`],
-    [
-      'one character shorter',
-      SECRET.slice(0, -1),
-    ],
-  ])('401s with a token %s than the secret', async (_, token) => {
-    const res = await app.request('/api/__preview/post/draft-post', {
-      headers: { Authorization: `Bearer ${token}` },
-    }, previewBindings())
-    expect(res.status).toBe(401)
   })
 
   it('returns unpublished posts with a valid token', async () => {

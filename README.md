@@ -64,19 +64,17 @@ Every `/api` response is JSON in one envelope: `{"status": "success", "data": ..
 
 <h2>Local Run</h2>
 
-Prerequisites: **Node.js 26** (see `.nvmrc`), **pnpm 10** and a Neon database with the posts table (the neon-http driver cannot reach a plain local Postgres). Without access to the production project's branches, make one:
-
-1. Create a free project on [Neon](https://neon.com) and copy its connection string.
-2. In a checkout of [tianwei-io-content](https://github.com/notbd/tianwei-io-content), after `pnpm install`, create the table and fill it: `DATABASE_URL=<url> pnpm db:migrate`, then `DATABASE_URL=<url> pnpm sync:prod`.
-3. Use the same URL as `DATABASE_URL` in `.dev.vars` below.
+Prerequisites: **Node.js 26** (see `.nvmrc`), **pnpm 10**, and a checkout of [tianwei-io-content](https://github.com/notbd/tianwei-io-content) for the database: run `pnpm dev` there first. It builds the posts table in memory from the content files and serves it on `127.0.0.1:5431` over the protocol the neon-http driver speaks ([its ADR-0004](https://github.com/notbd/tianwei-io-content/blob/main/docs/adr/0004-in-process-local-database.md)).
 
 ```shell
 git clone git@github.com:notbd/tianwei-io-api.git
 cd tianwei-io-api
 pnpm install
-cp .dev.vars.example .dev.vars   # then set DATABASE_URL
+cp .dev.vars.example .dev.vars   # its DATABASE_URL already names that local database
 pnpm dev                         # wrangler dev on http://127.0.0.1:8787
 ```
+
+A `DATABASE_URL` whose host is `127.0.0.1` or `localhost` is sent to that endpoint over plain HTTP (`src/db/connector.ts`); any other, `::1` included, must be a Neon database, since the driver cannot reach a plain Postgres. Running the whole site locally is in [the content engine's README](https://github.com/notbd/tianwei-io-content/blob/main/README.md) (Local Run).
 
 `pnpm test` needs no database: it runs on PGlite in memory.
 
@@ -86,7 +84,7 @@ pnpm dev                         # wrangler dev on http://127.0.0.1:8787
 | --- | --- |
 | `NODE_ENV` | Plain variable (`wrangler.jsonc` in production, `.dev.vars` locally); `development` turns on `/api/__dev/posts` |
 | `ALLOWED_ORIGINS` | Plain variable, comma-separated CORS origins; empty in production, since the frontend calls the API from its server |
-| `DATABASE_URL` | Worker secret (`pnpm wrangler secret put DATABASE_URL`): the Neon connection string |
+| `DATABASE_URL` | Worker secret (`pnpm wrangler secret put DATABASE_URL`): the Neon connection string. Locally, in `.dev.vars`: the content engine's database on `127.0.0.1:5431`, or a Neon branch |
 | `PREVIEW_SECRET` (optional) | Worker secret that enables the preview endpoint; must match the frontend's. A value shorter than 16 characters only disables preview and logs why; the public endpoints keep working |
 | `COMMIT_SHA` | Set by the deploy (`wrangler deploy --var COMMIT_SHA:<sha>`) and reported by `/health` as `commit`; unset locally |
 
@@ -101,7 +99,7 @@ pnpm test    # contract tests (exact JSON responses), repo tests (real SQL on PG
 pnpm smoke <baseline-url> <candidate-url>
 ```
 
-`pnpm smoke` compares every endpoint between two deployments, such as production and a local `wrangler dev` (with `NODE_ENV=production` in `.dev.vars`) before a release: status codes, and bodies as JSON with key order ignored. CI (`.github/workflows/ci.yml`) runs lint, typecheck and tests on every pull request, and `node scripts/deploy.ts check`, which proves the deploy script loads and reaches wrangler without credentials.
+`pnpm smoke` compares every endpoint between two deployments, such as production and a local `wrangler dev` before a release: status codes, and bodies as JSON with key order ignored. It compares the same data under two versions of the code, so that `wrangler dev` needs `NODE_ENV=production` and a `DATABASE_URL` that names a Neon branch with production's data, not the local database ([`release-verification.md`](https://github.com/notbd/tianwei.io/blob/main/docs/release-verification.md), Compare with production). CI (`.github/workflows/ci.yml`) runs lint, typecheck and tests on every pull request, and `node scripts/deploy.ts check`, which proves the deploy script loads and reaches wrangler without credentials.
 
 <h2>Deploy</h2>
 
@@ -109,14 +107,19 @@ A push to `main` runs `.github/workflows/deploy.yml`:
 
 1. Run lint, typecheck, tests and `node scripts/deploy.ts check` again.
 2. Stop unless the commit is the head of `main`: re-running an old run would deploy old code over newer. A run that a newer push overtakes before it gets here stops; the newer run deploys.
-3. `node scripts/deploy.ts release <sha>`: save the version serving all traffic (stop, with nothing deployed, unless exactly one does), `wrangler deploy --var COMMIT_SHA:<sha>`, then verify within 90 s. `/health` must report `<sha>`; `/api/posts`, `/api/categories` and the first listed post must answer 200 in a success envelope; then `/health` must still report `<sha>` (if not, it waits for it again). Network errors and 5xx are retried every 3 s (the database may be waking up); a 4xx, a wrong envelope or an empty list fail at once.
-4. If anything failed or the run was cancelled, `node scripts/deploy.ts restore` rolls back to the saved version when a different one is live, and confirms it is live again. The job stays red. If the rollback fails, the log names the saved version and the command that restores it by hand.
+3. `node scripts/deploy.ts release <sha>`: save the version serving all traffic (stop, with nothing deployed, unless exactly one does), run `wrangler deploy --var COMMIT_SHA:<sha>`, then verify within 90 s:
+   - `/health` reports `<sha>`;
+   - `/api/posts`, `/api/categories` and the first listed post answer 200 in a success envelope;
+   - `/health` still reports `<sha>` (if not, it waits for it again).
+
+   On the three data endpoints, network errors and 5xx are retried every 3 s (the database may be waking up); a 4xx, a wrong envelope or an empty list fail at once. `/health` is asked again until it reports `<sha>` or the 90 s run out.
+4. If step 3 failed or was cancelled while it ran, `node scripts/deploy.ts restore` rolls back to the saved version when a different one is live, and confirms it is live again. The job stays red. If the rollback fails, the log names the saved version and the command that restores it by hand.
 
 wrangler runs from this repo's dependencies (`pnpm exec`), and only steps 3 and 4 get the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. Deploys run one at a time. `node scripts/deploy.ts verify <url> <sha>` runs step 3's verification alone against any deployment; the `DEPLOY_VERIFY_*` variables can only shorten its timing.
 
-The new version takes traffic before it is verified, an exception to the deploy handshake the other repos follow; why, and what was considered instead, is in [tianwei.io ADR-0006](https://github.com/notbd/tianwei.io/blob/main/docs/adr/0006-cross-repo-releases.md).
+The new version takes traffic before it is verified, an exception to the deploy handshake the content deploy runs against the frontend; why, and what was considered instead, is in [tianwei.io ADR-0006](https://github.com/notbd/tianwei.io/blob/main/docs/adr/0006-cross-repo-releases.md).
 
-> **Release order**: the Worker selects every column its schema declares, so the order in which this repo and the content engine ship a schema change matters. Which repo goes first for any change that spans repos follows the rule in [tianwei.io ADR-0006](https://github.com/notbd/tianwei.io/blob/main/docs/adr/0006-cross-repo-releases.md); such a release is staged first per [`release-verification.md`](https://github.com/notbd/tianwei.io/blob/main/docs/release-verification.md).
+> **Release order**: the Worker selects every column its schema declares, so the order in which this repo and the content engine ship a schema change matters. Which repo goes first for any change that spans repos follows the rule in [tianwei.io ADR-0006](https://github.com/notbd/tianwei.io/blob/main/docs/adr/0006-cross-repo-releases.md); such a release is rehearsed first per [`release-verification.md`](https://github.com/notbd/tianwei.io/blob/main/docs/release-verification.md).
 
 Design records are in [`docs/adr/`](./docs/adr/).
 
