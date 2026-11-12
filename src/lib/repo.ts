@@ -1,5 +1,5 @@
 import type { Database } from '@/db/connector'
-import { and, asc, desc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq, getTableColumns } from 'drizzle-orm'
 import { posts } from '@/db/schema'
 
 /** A full row: the shape /api/post/:slug serves (Dates serialize as ISO strings). */
@@ -7,6 +7,9 @@ export type Post = typeof posts.$inferSelect
 
 /** The list shape served by /api/posts: everything but the body and the flag. */
 export type PostSummary = Omit<Post, 'content' | 'isPublished'>
+
+/** The columns of that shape, for the list's select. */
+const { content: _content, isPublished: _isPublished, ...summaryColumns } = getTableColumns(posts)
 
 /** Which posts a read may return: published ones, plus drafts when asked. */
 export type ReadOptions = {
@@ -40,16 +43,7 @@ export function createDrizzleRepo(db: Database): PostsRepo {
     // (failWith) and app.onError logs the cause once.
     async fetchPosts(options) {
       return db
-        .select({
-          id: posts.id,
-          slug: posts.slug,
-          category: posts.category,
-          title: posts.title,
-          description: posts.description,
-          author: posts.author,
-          createdAt: posts.createdAt,
-          updatedAt: posts.updatedAt,
-        })
+        .select(summaryColumns)
         .from(posts)
         .where(visible(options))
         // Dates carry day precision, so same-day posts tie-break on id
