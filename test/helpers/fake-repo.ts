@@ -96,7 +96,6 @@ export function bindings(overrides: Partial<WorkerBindings> = {}) {
   return {
     NODE_ENV: 'production',
     DATABASE_URL: 'postgresql://user:pass@example.test/db',
-    ALLOWED_ORIGINS: '',
     ...overrides,
   }
 }

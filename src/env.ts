@@ -48,13 +48,6 @@ const envSchema = z.object({
   // sets it per deploy (`wrangler deploy --var COMMIT_SHA:<sha>`); absent
   // locally. Deliberately unvalidated: a malformed value must not 500 the API.
   COMMIT_SHA: z.string().optional(),
-
-  // Comma-separated list of allowed CORS origins.
-  // If empty or omitted, CORS middleware is not applied.
-  ALLOWED_ORIGINS: z
-    .string()
-    .optional()
-    .transform(val => val?.split(',').map(origin => origin.trim()).filter(Boolean) ?? []),
 })
 
 export type Env = z.infer<typeof envSchema>

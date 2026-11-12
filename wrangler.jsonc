@@ -16,8 +16,7 @@
   // Non-secret configuration. DATABASE_URL is a secret:
   //   pnpm wrangler secret put DATABASE_URL
   "vars": {
-    "NODE_ENV": "production",
-    "ALLOWED_ORIGINS": ""
+    "NODE_ENV": "production"
   },
 
   // Custom domain (enabled at cutover 2026-07-07; Cloudflare manages the

@@ -1,7 +1,6 @@
 import type { AppEnv } from '@/context'
 import type { PostsRepo } from '@/lib/repo'
 import { Hono } from 'hono'
-import { cors } from 'hono/cors'
 import { HTTPException } from 'hono/http-exception'
 import { getDB } from '@/db/connector'
 import { parseEnv } from '@/env'
@@ -19,7 +18,7 @@ export type CreateAppOptions = {
  * Build the Worker's Hono app.
  *
  * Workers has no boot phase: configuration arrives per request (`c.env`),
- * so env validation, CORS and the dev-only route are decided per request,
+ * so env validation and the dev-only route are decided per request,
  * memoized where it matters.
  */
 export function createApp(options: CreateAppOptions = {}) {
@@ -33,21 +32,6 @@ export function createApp(options: CreateAppOptions = {}) {
     c.set('env', env)
     c.set('repo', options.repo ?? createDrizzleRepo(getDB(env.DATABASE_URL)))
     await next()
-  })
-
-  // CORS - only applied if ALLOWED_ORIGINS is configured.
-  // Server-side requests (SSR) are not affected by CORS.
-  app.use('*', async (c, next) => {
-    const origins = c.get('env').ALLOWED_ORIGINS
-    if (origins.length > 0) {
-      return cors({
-        origin: origins,
-        allowMethods: ['GET', 'HEAD', 'OPTIONS'],
-        allowHeaders: ['Content-Type'],
-        maxAge: 86400, // 24 hours - browsers cache preflight response
-      })(c, next)
-    }
-    return next()
   })
 
   // The ONLY cache layer for content is the Next.js frontend (data cache

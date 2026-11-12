@@ -83,7 +83,6 @@ When the host in `DATABASE_URL` is `127.0.0.1` or `localhost`, queries go to tha
 | Variable | Purpose |
 | --- | --- |
 | `NODE_ENV` | Plain variable (`wrangler.jsonc` in production, `.dev.vars` locally); `development` turns on `/api/__dev/posts` |
-| `ALLOWED_ORIGINS` | Plain variable, comma-separated CORS origins; empty in production, since the frontend calls the API from its server |
 | `DATABASE_URL` | Worker secret (`pnpm wrangler secret put DATABASE_URL`): the Neon connection string. Locally, in `.dev.vars`: the content engine's database on `127.0.0.1:5431`, or a Neon branch |
 | `PREVIEW_SECRET` (optional) | Worker secret that enables the preview endpoint; must match the frontend's. A value shorter than 16 characters only disables preview and logs why; the public endpoints keep working |
 | `COMMIT_SHA` | Set by the deploy (`wrangler deploy --var COMMIT_SHA:<sha>`) and reported by `/health` as `commit`; unset locally |

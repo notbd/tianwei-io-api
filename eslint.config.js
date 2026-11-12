@@ -33,13 +33,4 @@ export default antfu(
       'ts/no-non-null-assertion': 'error',
     },
   },
-
-  {
-    // Hono types a middleware's context input as `any`, so handing `c` on to
-    // cors() trips this rule although no untyped value flows.
-    files: ['src/app.ts'],
-    rules: {
-      'ts/no-unsafe-argument': 'off',
-    },
-  },
 )
