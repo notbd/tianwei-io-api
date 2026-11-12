@@ -74,7 +74,7 @@ cp .dev.vars.example .dev.vars   # its DATABASE_URL already names that local dat
 pnpm dev                         # wrangler dev on http://127.0.0.1:8787
 ```
 
-A loopback `DATABASE_URL` is sent to that endpoint over plain HTTP (`src/db/connector.ts`); any other must be a Neon database, since the driver cannot reach a plain Postgres. Running the whole site locally is in [the content engine's README](https://github.com/notbd/tianwei-io-content/blob/main/README.md) (Local Run).
+A `DATABASE_URL` whose host is `127.0.0.1` or `localhost` is sent to that endpoint over plain HTTP (`src/db/connector.ts`); any other, `::1` included, must be a Neon database, since the driver cannot reach a plain Postgres. Running the whole site locally is in [the content engine's README](https://github.com/notbd/tianwei-io-content/blob/main/README.md) (Local Run).
 
 `pnpm test` needs no database: it runs on PGlite in memory.
 
@@ -112,7 +112,7 @@ A push to `main` runs `.github/workflows/deploy.yml`:
    - `/api/posts`, `/api/categories` and the first listed post answer 200 in a success envelope;
    - `/health` still reports `<sha>` (if not, it waits for it again).
 
-   Network errors and 5xx are retried every 3 s (the database may be waking up); a 4xx, a wrong envelope or an empty list fail at once.
+   On the three data endpoints, network errors and 5xx are retried every 3 s (the database may be waking up); a 4xx, a wrong envelope or an empty list fail at once. `/health` is asked again until it reports `<sha>` or the 90 s run out.
 4. If step 3 failed or was cancelled while it ran, `node scripts/deploy.ts restore` rolls back to the saved version when a different one is live, and confirms it is live again. The job stays red. If the rollback fails, the log names the saved version and the command that restores it by hand.
 
 wrangler runs from this repo's dependencies (`pnpm exec`), and only steps 3 and 4 get the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. Deploys run one at a time. `node scripts/deploy.ts verify <url> <sha>` runs step 3's verification alone against any deployment; the `DEPLOY_VERIFY_*` variables can only shorten its timing.
