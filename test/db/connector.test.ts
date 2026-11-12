@@ -11,7 +11,7 @@ describe('sqlEndpoint', () => {
     // only the exact names are local
     ['localhost.evil.example', 5431, 'https://api.evil.example/sql'],
     ['localhost.', 5431, 'https://api./sql'],
-  ])('sends the queries for %s to %s', (host, port, endpoint) => {
+  ])('sends the queries for %s:%s to %s', (host, port, endpoint) => {
     expect(sqlEndpoint(host, port)).toBe(endpoint)
   })
 })
