@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "private": true,
   "packageManager": "pnpm@10.34.9",
-  "description": "API layer for tianwei.io — Hono on Cloudflare Workers, serving content from Neon Postgres",
+  "description": "API layer for tianwei.io: Hono on Cloudflare Workers, serving content from Neon Postgres",
   "author": "Tianwei Zhang",
   "license": "AGPL-3.0-only",
   "engines": {
@@ -12,20 +12,18 @@
   },
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
     "cf-typegen": "wrangler types --include-env=false",
     "smoke": "node scripts/smoke.mjs",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p test",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test && tsc --noEmit -p scripts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@hono/zod-validator": "^0.9.1",
     "@neondatabase/serverless": "^1.2.0",
     "drizzle-orm": "^0.45.4",
-    "hono": "^4.13.14",
+    "hono": "^4.13.18",
     "zod": "^4.6.7"
   },
   "devDependencies": {

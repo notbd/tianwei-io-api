@@ -1,14 +1,14 @@
 name: CI
 
 # PRs only: pushes to dev update their PR (synchronize) and pushes to main
-# re-run these checks inside deploy.yml — push triggers here would double-run.
+# re-run these checks inside deploy.yml: push triggers here would double-run.
 on:
   pull_request:
 
 permissions:
   contents: read
 
-# A force-push supersedes the running check — don't burn minutes finishing it.
+# A force-push supersedes the running check; don't burn minutes finishing it.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -21,8 +21,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Third-party, so pinned to a commit (GitHub's own actions stay on
+      # tags): a moved tag cannot change the pnpm that later steps run. The
+      # pnpm version comes from packageManager.
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6 # version read from packageManager field
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -41,3 +44,7 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      # the deploy script loads and reaches wrangler, without credentials
+      - name: Deploy script
+        run: node scripts/deploy.ts check

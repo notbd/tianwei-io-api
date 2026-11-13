@@ -10,7 +10,8 @@
  *   node scripts/smoke.mjs https://tio.twz.app http://127.0.0.1:8787
  *
  * Compares status codes and response bodies as canonical JSON, key order
- * ignored (the wire contract the frontend parses). Headers are informational only — platforms add their own.
+ * ignored (the wire contract the frontend parses). Headers are
+ * informational only: platforms add their own.
  */
 
 import process from 'node:process'
@@ -23,8 +24,8 @@ if (!baselineBase || !candidateBase) {
 }
 
 // Fields either side may have that the other lacks. Empty by default so a
-// dropped field fails the run; add a field here only while it rolls out
-// content → api (as updatedAt did in 2026-07), and remove it afterwards.
+// dropped field fails the run; add one here only while a field rolls out
+// (as updatedAt did in 2026-07), and remove it afterwards.
 // Stripped from BOTH sides before comparison.
 const ALLOWED_NEW_FIELDS = new Set()
 
@@ -36,16 +37,12 @@ function canonicalize(value) {
     return value.map(canonicalize)
   if (value !== null && typeof value === 'object') {
     return Object.fromEntries(
-      Object.entries(value)
-        .filter(([key]) => !ALLOWED_NEW_FIELDS.has(key))
-        .sort(([a], [b]) => (a < b
-          ? -1
-          : a > b
-            ? 1
-            : 0))
-        .map(([key, inner]) => [
+      Object.keys(value)
+        .filter(key => !ALLOWED_NEW_FIELDS.has(key))
+        .sort()
+        .map(key => [
           key,
-          canonicalize(inner),
+          canonicalize(value[key]),
         ]),
     )
   }
@@ -68,7 +65,7 @@ function bodiesMatch(baselineBody, candidateBody) {
 
 const CHECKS = [
   { path: '/', expectStatus: 200 },
-  { path: '/health', expectStatus: 200, ignoreBody: true }, // the env field is informational, not part of the contract
+  { path: '/health', expectStatus: 200, ignoreBody: true }, // env and commit differ per deployment
   { path: '/api/posts', expectStatus: 200 },
   { path: '/api/categories', expectStatus: 200 },
   { path: '/api/post/__FIRST_SLUG__', expectStatus: 200 },
@@ -89,7 +86,7 @@ async function fetchBody(base, path) {
 async function firstSlug() {
   const res = await fetch(new URL('/api/posts', baselineBase))
   if (!res.ok)
-    throw new Error(`Baseline /api/posts responded ${res.status} — cannot resolve a post slug`)
+    throw new Error(`Baseline /api/posts responded ${res.status}: cannot resolve a post slug`)
   const json = await res.json()
   const slug = json?.data?.[0]?.slug
   if (!slug)
@@ -134,4 +131,4 @@ if (failures > 0) {
   console.error(`\n${failures} check(s) failed`)
   process.exit(1)
 }
-console.info('\nAll checks passed — contract matches (modulo allowed additive fields).')
+console.info('\nAll checks passed: contract matches (modulo allowed additive fields).')
