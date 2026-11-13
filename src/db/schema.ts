@@ -7,18 +7,28 @@ import {
   varchar,
 } from 'drizzle-orm/pg-core'
 
+export const SLUG_MAX_LENGTH = 200
+export const CATEGORY_MAX_LENGTH = 100
+export const AUTHOR_MAX_LENGTH = 100
+
 /**
  * Posts table schema:
  * Stores metadata, body content, and publishing state for each .mdx entry.
+ *
+ * Copy of tianwei-io-content/drizzle/schema.ts, which owns the migrations;
+ * keep the two identical apart from this comment. They differ on purpose
+ * only between the two releases that add or drop a column (tianwei.io
+ * ADR-0006: this copy gains a column after the table has it and loses one
+ * before the table does).
  */
 export const posts = pgTable('posts', {
   id: serial('id').primaryKey(),
-  slug: varchar('slug', { length: 200 }).notNull().unique(),
-  category: varchar('category', { length: 100 }).notNull(),
+  slug: varchar('slug', { length: SLUG_MAX_LENGTH }).notNull().unique(),
+  category: varchar('category', { length: CATEGORY_MAX_LENGTH }).notNull(),
 
   title: text('title').notNull(),
   description: text('description'),
-  author: varchar('author', { length: 100 }).notNull(),
+  author: varchar('author', { length: AUTHOR_MAX_LENGTH }).notNull(),
 
   createdAt: timestamp('created_at', { mode: 'date' }).notNull(),
 
@@ -26,7 +36,7 @@ export const posts = pgTable('posts', {
   updatedAt: timestamp('updated_at', { mode: 'date' }),
 
   // whether this entry should be visible to the frontend
-  isPublished: boolean('is_published').notNull(),
+  isPublished: boolean('is_published').notNull().default(false),
 
   content: text('content').notNull(),
 })

@@ -1,37 +1,30 @@
-import type { Context } from 'hono'
-
-interface ValidationResult {
-  success: boolean
-  error?: {
-    issues: Array<{
-      path: PropertyKey[]
-      message: string
-    }>
-  }
-}
+import { validator } from 'hono/validator'
+import { z } from 'zod'
+import { SLUG_MAX_LENGTH } from '@/db/schema'
+import { apiRes } from '@/lib/responses'
 
 /**
- * Custom error hook for @hono/zod-validator.
- * On success, returns undefined to continue to the handler.
- * On failure, returns a consistent 400 error response.
+ * Slug path parameter: lowercase alphanumeric, hyphens allowed but not
+ * consecutive. The messages are part of the 400 the frontend maps to 404.
  */
-export function validationErrorHook(
-  result: ValidationResult,
-  c: Context,
-) {
-  if (result.success) {
-    return
-  }
+const slugParamSchema = z.object({
+  slug: z
+    .string()
+    .min(1, 'Slug cannot be empty')
+    .max(SLUG_MAX_LENGTH, 'Slug is too long')
+    .regex(
+      /^[a-z0-9]+(-[a-z0-9]+)*$/,
+      'Slug must be lowercase alphanumeric with non-consecutive hyphens',
+    ),
+})
 
-  const firstIssue = result.error?.issues[0]
-  const path = firstIssue?.path.join('.') || 'unknown'
-  const message = firstIssue?.message || 'Invalid input'
+/** Validates `:slug`; a bad one gets a 400 naming the first failed rule. */
+export const validSlug = validator('param', (params, c) => {
+  const result = slugParamSchema.safeParse(params)
+  if (result.success)
+    return result.data
 
-  return c.json(
-    {
-      status: 'error',
-      message: `Validation failed: ${path} - ${message}`,
-    },
-    400,
-  )
-}
+  // zod reports at least one issue for a failed parse
+  const issue = result.error.issues[0]!
+  return apiRes.err(c, `Validation failed: ${issue.path.join('.')} - ${issue.message}`, 400)
+})

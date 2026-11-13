@@ -1,13 +1,17 @@
 #!/usr/bin/env node
 /**
- * Cutover smoke test: byte-diff every endpoint between two deployments.
+ * Smoke test: compare every endpoint between two deployments, e.g.
+ * production against a local `wrangler dev` before a release. Both sides
+ * must run with NODE_ENV=production (set it in .dev.vars for the local
+ * candidate): the /api/__dev/posts check expects the standard 404.
  *
  * Usage:
  *   node scripts/smoke.mjs <baseline-url> <candidate-url>
- *   node scripts/smoke.mjs https://tio.twz.app https://tianwei-io-api.<acct>.workers.dev
+ *   node scripts/smoke.mjs https://tio.twz.app http://127.0.0.1:8787
  *
- * Compares status codes and exact response bodies (the wire contract the
- * frontend parses). Headers are informational only — platforms add their own.
+ * Compares status codes and response bodies as canonical JSON, key order
+ * ignored (the wire contract the frontend parses). Headers are
+ * informational only: platforms add their own.
  */
 
 import process from 'node:process'
@@ -19,12 +23,11 @@ if (!baselineBase || !candidateBase) {
   process.exit(2)
 }
 
-// Fields either side is allowed to have that the other may lack
-// (additive contract evolution, e.g. updatedAt introduced with the
-// Workers migration). Stripped from BOTH sides before comparison, so the
-// script also works once the baseline itself serves the new field
-// (e.g. re-running against workers.dev during the domain switch).
-const ALLOWED_NEW_FIELDS = new Set(['updatedAt'])
+// Fields either side may have that the other lacks. Empty by default so a
+// dropped field fails the run; add one here only while a field rolls out
+// (as updatedAt did in 2026-07), and remove it afterwards.
+// Stripped from BOTH sides before comparison.
+const ALLOWED_NEW_FIELDS = new Set()
 
 // Key-order-independent canonical form: sorted keys + allowed additive
 // fields removed. JSON.stringify alone would be order-sensitive and fail
@@ -34,10 +37,13 @@ function canonicalize(value) {
     return value.map(canonicalize)
   if (value !== null && typeof value === 'object') {
     return Object.fromEntries(
-      Object.entries(value)
-        .filter(([key]) => !ALLOWED_NEW_FIELDS.has(key))
-        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-        .map(([key, inner]) => [key, canonicalize(inner)]),
+      Object.keys(value)
+        .filter(key => !ALLOWED_NEW_FIELDS.has(key))
+        .sort()
+        .map(key => [
+          key,
+          canonicalize(value[key]),
+        ]),
     )
   }
   return value
@@ -59,7 +65,7 @@ function bodiesMatch(baselineBody, candidateBody) {
 
 const CHECKS = [
   { path: '/', expectStatus: 200 },
-  { path: '/health', expectStatus: 200, ignoreBody: true }, // env name may differ pre-cutover
+  { path: '/health', expectStatus: 200, ignoreBody: true }, // env and commit differ per deployment
   { path: '/api/posts', expectStatus: 200 },
   { path: '/api/categories', expectStatus: 200 },
   { path: '/api/post/__FIRST_SLUG__', expectStatus: 200 },
@@ -80,7 +86,7 @@ async function fetchBody(base, path) {
 async function firstSlug() {
   const res = await fetch(new URL('/api/posts', baselineBase))
   if (!res.ok)
-    throw new Error(`Baseline /api/posts responded ${res.status} — cannot resolve a post slug`)
+    throw new Error(`Baseline /api/posts responded ${res.status}: cannot resolve a post slug`)
   const json = await res.json()
   const slug = json?.data?.[0]?.slug
   if (!slug)
@@ -125,4 +131,4 @@ if (failures > 0) {
   console.error(`\n${failures} check(s) failed`)
   process.exit(1)
 }
-console.info('\nAll checks passed — contract matches (modulo allowed additive fields).')
+console.info('\nAll checks passed: contract matches (modulo allowed additive fields).')

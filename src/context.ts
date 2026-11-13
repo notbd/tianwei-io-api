@@ -5,7 +5,7 @@ import type { PostsRepo } from '@/lib/repo'
  * Hono type parameter for this app: raw Worker bindings plus the
  * per-request variables resolved by the context middleware in app.ts.
  */
-export interface AppEnv {
+export type AppEnv = {
   Bindings: WorkerBindings
   Variables: {
     env: Env
