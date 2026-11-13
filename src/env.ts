@@ -4,21 +4,23 @@ import { z } from 'zod'
 // Environment Schema
 // ---------------------------------------------------------------------------
 // Validates the Worker's bindings (wrangler `vars` + secrets + .dev.vars).
-// Unlike the Node.js version, there is no process-wide environment: bindings
-// arrive per request on `c.env`, so validation happens per request and is
-// memoized on the bindings object (stable for the lifetime of an isolate).
+// Workers has no process-wide environment: bindings arrive per request on
+// `c.env`, so validation happens per request and is memoized on the
+// bindings object (stable for the lifetime of an isolate).
 // ---------------------------------------------------------------------------
 
-const EnvSchema = z.object({
-  // Runtime environment: controls dev-only routes and request logging.
-  // Kept as NODE_ENV so /health's `env` field is unchanged from the fly.io era.
+const envSchema = z.object({
+  // Runtime environment: controls the dev-only route; /health reports it
+  // as `env`.
   // Defaults to PRODUCTION: this value gates the drafts-exposing __dev route,
   // so a missing binding must fail closed (.dev.vars sets it explicitly).
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
     .default('production'),
 
-  // Neon connection string (Worker secret in production, .dev.vars locally)
+  // Neon connection string (a Worker secret) in production; locally, in
+  // .dev.vars, the content engine's local database on 127.0.0.1 or a Neon
+  // branch (see sqlEndpoint in src/db/connector.ts)
   DATABASE_URL: z
     .string()
     .min(1, 'DATABASE_URL is required')
@@ -41,19 +43,14 @@ const EnvSchema = z.object({
       return undefined
     }),
 
-  // Comma-separated list of allowed CORS origins.
-  // If empty or omitted, CORS middleware is not applied.
-  ALLOWED_ORIGINS: z
-    .string()
-    .optional()
-    .transform((val) => {
-      if (!val || val.trim() === '')
-        return []
-      return val.split(',').map(origin => origin.trim()).filter(Boolean)
-    }),
+  // The git SHA this version was deployed from, reported by /health so the
+  // deploy can tell its own version from the previous one. scripts/deploy.ts
+  // sets it per deploy (`wrangler deploy --var COMMIT_SHA:<sha>`); absent
+  // locally. Deliberately unvalidated: a malformed value must not 500 the API.
+  COMMIT_SHA: z.string().optional(),
 })
 
-export type Env = z.infer<typeof EnvSchema>
+export type Env = z.infer<typeof envSchema>
 
 /** Raw bindings the Worker receives (wrangler.jsonc vars, secrets, .dev.vars): unvalidated strings. */
 export type WorkerBindings = Partial<Record<keyof Env, string>>
@@ -69,7 +66,7 @@ export function parseEnv(bindings: WorkerBindings): Env {
   if (cached)
     return cached
 
-  const parsed = EnvSchema.safeParse(bindings)
+  const parsed = envSchema.safeParse(bindings)
   if (!parsed.success) {
     console.error('Environment validation failed:', z.treeifyError(parsed.error))
     throw new Error('Invalid environment configuration')

@@ -1,3 +1,4 @@
+import type { PostsRepo } from '@/lib/repo'
 import { PGlite } from '@electric-sql/pglite'
 import { pushSchema } from 'drizzle-kit/api'
 import { drizzle } from 'drizzle-orm/pglite'
@@ -8,13 +9,15 @@ import { createDrizzleRepo } from '@/lib/repo'
 // Exercises the real SQL the repo issues, against an in-memory Postgres.
 
 let client: PGlite
-let repo: ReturnType<typeof createDrizzleRepo>
+let repo: PostsRepo
 
 // One database for the whole file: every test below is read-only.
 beforeAll(async () => {
   client = new PGlite()
   const db = drizzle(client, { schema })
 
+  // drizzle-kit declares pushSchema's db as schema-less, which a db typed
+  // with our schema does not satisfy; it only runs SQL through it.
   const { apply } = await pushSchema(schema, db as never)
   await apply()
 
@@ -78,7 +81,7 @@ describe('fetchPosts', () => {
     const rows = await repo.fetchPosts()
     expect(rows.map(row => row.slug)).toEqual(['published-new', 'published-same-day', 'published-old'])
     expect(rows[0]).toEqual({
-      id: expect.any(Number),
+      id: 3, // ids follow insertion order
       slug: 'published-new',
       category: 'articles',
       title: 'New',
@@ -88,13 +91,11 @@ describe('fetchPosts', () => {
       updatedAt: new Date('2025-11-05T05:00:00.000Z'),
     })
     // updatedAt is nullable: absent means "never updated"
-    expect(rows[2]!.updatedAt).toBeNull()
-    expect(rows[0]).not.toHaveProperty('content')
-    expect(rows[0]).not.toHaveProperty('isPublished')
+    expect(rows[2]?.updatedAt).toBeNull()
   })
 
-  it('includes drafts when ignorePublishStatus is set', async () => {
-    const rows = await repo.fetchPosts({ ignorePublishStatus: true })
+  it('includes drafts when includeDrafts is set', async () => {
+    const rows = await repo.fetchPosts({ includeDrafts: true })
     expect(rows.map(row => row.slug)).toEqual([
       'unpublished-draft',
       'published-new',
@@ -113,8 +114,8 @@ describe('fetchPostBySlug', () => {
       description: null,
       isPublished: true,
       content: 'old content',
+      createdAt: new Date('2024-04-15T04:00:00.000Z'),
     })
-    expect(post!.createdAt).toEqual(new Date('2024-04-15T04:00:00.000Z'))
   })
 
   it('returns null for a missing slug', async () => {
@@ -123,7 +124,7 @@ describe('fetchPostBySlug', () => {
 
   it('hides unpublished posts by default, reveals them when asked', async () => {
     expect(await repo.fetchPostBySlug('unpublished-draft')).toBeNull()
-    const draft = await repo.fetchPostBySlug('unpublished-draft', { ignorePublishStatus: true })
+    const draft = await repo.fetchPostBySlug('unpublished-draft', { includeDrafts: true })
     expect(draft?.slug).toBe('unpublished-draft')
   })
 })

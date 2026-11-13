@@ -1,9 +1,7 @@
 import type { AppEnv } from '@/context'
 import type { PostsRepo } from '@/lib/repo'
 import { Hono } from 'hono'
-import { cors } from 'hono/cors'
 import { HTTPException } from 'hono/http-exception'
-import { logger } from 'hono/logger'
 import { getDB } from '@/db/connector'
 import { parseEnv } from '@/env'
 import { createDrizzleRepo } from '@/lib/repo'
@@ -11,7 +9,7 @@ import { apiRes } from '@/lib/responses'
 import draftsRoutes from '@/routes/drafts'
 import postsRoutes from '@/routes/posts'
 
-export interface CreateAppOptions {
+export type CreateAppOptions = {
   /** Override the data layer (tests inject fakes here). */
   repo?: PostsRepo
 }
@@ -19,10 +17,9 @@ export interface CreateAppOptions {
 /**
  * Build the Worker's Hono app.
  *
- * Note on shape: on Workers there is no boot phase (configuration arrives
- * per request via `c.env`), so everything the Node.js version decided at
- * startup (env validation, CORS on/off, dev-only logging and routes) is
- * decided per request here, memoized where it matters.
+ * Workers has no boot phase: configuration arrives per request (`c.env`),
+ * so env validation and the dev-only route are decided per request,
+ * memoized where it matters.
  */
 export function createApp(options: CreateAppOptions = {}) {
   const app = new Hono<AppEnv>()
@@ -35,28 +32,6 @@ export function createApp(options: CreateAppOptions = {}) {
     c.set('env', env)
     c.set('repo', options.repo ?? createDrizzleRepo(getDB(env.DATABASE_URL)))
     await next()
-  })
-
-  // Request logging (development only for cleaner prod logs)
-  app.use('*', async (c, next) => {
-    if (c.get('env').NODE_ENV === 'development')
-      return logger()(c, next)
-    return next()
-  })
-
-  // CORS - only applied if ALLOWED_ORIGINS is configured.
-  // Server-side requests (SSR) are not affected by CORS.
-  app.use('*', async (c, next) => {
-    const origins = c.get('env').ALLOWED_ORIGINS
-    if (origins.length > 0) {
-      return cors({
-        origin: origins,
-        allowMethods: ['GET', 'HEAD', 'OPTIONS'],
-        allowHeaders: ['Content-Type'],
-        maxAge: 86400, // 24 hours - browsers cache preflight response
-      })(c, next)
-    }
-    return next()
   })
 
   // The ONLY cache layer for content is the Next.js frontend (data cache
@@ -75,9 +50,13 @@ export function createApp(options: CreateAppOptions = {}) {
     return c.text('Hello from tianwei.io API!')
   })
 
-  // Health check endpoint for uptime monitoring
+  // Health check for uptime monitoring and the deploy's version check.
+  // `commit` is omitted when COMMIT_SHA is unset (JSON drops undefined).
+  // no-store: a cached answer would let the deploy see a stale commit.
   app.get('/health', (c) => {
-    return c.json({ status: 'ok', env: c.get('env').NODE_ENV })
+    const { NODE_ENV, COMMIT_SHA } = c.get('env')
+    c.header('Cache-Control', 'no-store')
+    return c.json({ status: 'ok', env: NODE_ENV, commit: COMMIT_SHA })
   })
 
   app.route('/api', postsRoutes)

@@ -2,40 +2,22 @@ import type { Context } from 'hono'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { HTTPException } from 'hono/http-exception'
 
-// The wire envelopes. Every message string passed to these helpers is part
-// of the contract the frontend parses (test/contract pins them).
-
-export interface SuccessResponse<T> {
-  status: 'success'
-  data: T
-}
-
-export interface SuccessListResponse<T> {
-  status: 'success'
-  count: number
-  data: T[]
-}
-
-export interface ErrorResponse {
-  status: 'error'
-  message: string
-}
-
 /**
- * API response helpers.
+ * The wire envelopes. Every message string passed to these helpers is part
+ * of the contract the frontend parses (test/contract pins them).
  * Usage: apiRes.ok(c, data), apiRes.list(c, items), apiRes.err(c, message, status)
  */
 export const apiRes = {
   ok<T>(c: Context, data: T) {
-    return c.json({ status: 'success', data } satisfies SuccessResponse<T>)
+    return c.json({ status: 'success' as const, data })
   },
 
   list<T>(c: Context, data: T[]) {
-    return c.json({ status: 'success', count: data.length, data } satisfies SuccessListResponse<T>)
+    return c.json({ status: 'success' as const, count: data.length, data })
   },
 
-  err(c: Context, message: string, status: ContentfulStatusCode = 500) {
-    return c.json({ status: 'error', message } satisfies ErrorResponse, status)
+  err(c: Context, message: string, status: ContentfulStatusCode) {
+    return c.json({ status: 'error' as const, message }, status)
   },
 }
 
